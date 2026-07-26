@@ -1,0 +1,211 @@
+// Prisma schema — Tokinomo platform data model
+// Source of truth: team/ARCHITECTURE.md §4
+// Timescale hypertable + RLS policies land in later SQL migrations.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TenantTier {
+  BASE
+  PLUS
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum DeviceStatus {
+  UNASSIGNED
+  PROVISIONING
+  ONLINE
+  OFFLINE
+}
+
+enum DeviceEventType {
+  DETECTION
+  DWELL
+  PLAY
+  ONLINE
+  OFFLINE
+}
+
+enum CommandType {
+  AUDIO_UPDATE
+  PLAY
+  REBOOT
+  CONFIG
+}
+
+enum CommandStatus {
+  QUEUED
+  SENT
+  ACKED
+  FAILED
+}
+
+/// Brand / org mirror (BetterAuth organizationId = Tenant.id later)
+model Tenant {
+  id        String       @id @default(uuid()) @db.Uuid
+  name      String
+  slug      String       @unique
+  tier      TenantTier   @default(BASE)
+  status    TenantStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  users      User[]
+  products   Product[]
+  locations  Location[]
+  devices    Device[]
+  audioClips AudioClip[]
+  events     DeviceEvent[]
+
+  @@map("tenant")
+}
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  /// null = platform (Baliyo) user
+  tenantId  String?  @map("tenant_id") @db.Uuid
+  email     String   @unique
+  name      String?
+  role      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@map("user")
+}
+
+model Product {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      String
+  sku       String
+  imageKey  String?  @map("image_key")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id])
+  devices Device[]
+
+  @@unique([tenantId, sku])
+  @@index([tenantId])
+  @@map("product")
+}
+
+model Location {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      String
+  address   String?
+  lat       Float?
+  lng       Float?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id])
+  devices Device[]
+
+  @@index([tenantId])
+  @@map("location")
+}
+
+model Device {
+  id           String       @id @default(uuid()) @db.Uuid
+  serial       String       @unique
+  /// null until platform assigns to a tenant
+  tenantId     String?      @map("tenant_id") @db.Uuid
+  locationId   String?      @map("location_id") @db.Uuid
+  productId    String?      @map("product_id") @db.Uuid
+  fwVersion    String?      @map("fw_version")
+  status       DeviceStatus @default(UNASSIGNED)
+  provisionToken String?    @map("provision_token")
+  lastSeen     DateTime?    @map("last_seen")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  tenant      Tenant?       @relation(fields: [tenantId], references: [id])
+  location    Location?     @relation(fields: [locationId], references: [id])
+  product     Product?      @relation(fields: [productId], references: [id])
+  events      DeviceEvent[]
+  deviceAudio DeviceAudio[]
+  commands    Command[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("device")
+}
+
+model AudioClip {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  name       String
+  storageKey String   @map("storage_key")
+  durationMs Int?     @map("duration_ms")
+  checksum   String
+  version    Int      @default(1)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  tenant      Tenant        @relation(fields: [tenantId], references: [id])
+  deviceAudio DeviceAudio[]
+
+  @@index([tenantId])
+  @@map("audio_clip")
+}
+
+model DeviceAudio {
+  deviceId    String  @map("device_id") @db.Uuid
+  audioClipId String  @map("audio_clip_id") @db.Uuid
+  active      Boolean @default(true)
+
+  device    Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  audioClip AudioClip @relation(fields: [audioClipId], references: [id], onDelete: Cascade)
+
+  @@id([deviceId, audioClipId])
+  @@map("device_audio")
+}
+
+/// Telemetry events — promote to Timescale hypertable in a later migration
+model DeviceEvent {
+  id       String          @id @default(uuid()) @db.Uuid
+  deviceId String          @map("device_id") @db.Uuid
+  tenantId String          @map("tenant_id") @db.Uuid
+  ts       DateTime        @default(now())
+  type     DeviceEventType
+  dwellMs  Int?            @map("dwell_ms")
+  meta     Json?
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, ts])
+  @@index([deviceId, ts])
+  @@map("device_event")
+}
+
+model Command {
+  id        String        @id @default(uuid()) @db.Uuid
+  deviceId  String        @map("device_id") @db.Uuid
+  type      CommandType
+  payload   Json
+  status    CommandStatus @default(QUEUED)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+  ackedAt   DateTime?     @map("acked_at")
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, status])
+  @@map("command")
+}

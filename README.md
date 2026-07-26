@@ -21,3 +21,7 @@ Start here: **[Team Handbook](./team/TEAM_INDEX.md)**
 | Sprint 01 | [SPRINT_01.md](./team/SPRINT_01.md) |
 
 Business, pricing, and proposal docs are kept privately by the founders and are not in this repository.
+
+## Backend
+
+NestJS API scaffold: [`tokinomo-backend/`](./tokinomo-backend/) — see its README for Docker + Scalar docs.

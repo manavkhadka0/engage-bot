@@ -1,0 +1,9 @@
+# Keep empty — package manager settings live in allowBuilds below.
+# This is not a multi-package workspace; file exists for pnpm v11 settings.
+
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  '@scarf/scarf': true
+  prisma: true
+  unrs-resolver: true

@@ -1,0 +1,96 @@
+services:
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: tokinomo-postgres
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: tokinomo
+      POSTGRES_PASSWORD: ***REMOVED***
+      POSTGRES_DB: tokinomo
+    volumes:
+      - tokinomo_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tokinomo -d tokinomo']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: tokinomo-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - tokinomo_redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: tokinomo-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    environment:
+      MINIO_ROOT_USER: tokinomo
+      MINIO_ROOT_PASSWORD: ***REMOVED***
+    volumes:
+      - tokinomo_minio_data:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: tokinomo-minio-init
+    depends_on:
+      minio:
+        condition: service_started
+    entrypoint: >
+      /bin/sh -c "
+      sleep 3;
+      mc alias set local http://minio:9000 tokinomo ***REMOVED***;
+      mc mb --ignore-existing local/tokinomo;
+      exit 0;
+      "
+    restart: 'no'
+
+  emqx:
+    image: emqx/emqx:5.8.6
+    container_name: tokinomo-emqx
+    restart: unless-stopped
+    ports:
+      - '1883:1883'
+      - '8083:8083'
+      - '8084:8084'
+      - '8883:8883'
+      - '18083:18083'
+    environment:
+      EMQX_NAME: tokinomo
+      EMQX_DASHBOARD__DEFAULT_USERNAME: admin
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: ***REMOVED***
+    volumes:
+      - tokinomo_emqx_data:/opt/emqx/data
+    healthcheck:
+      test: ['CMD', 'emqx', 'ctl', 'status']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+volumes:
+  tokinomo_pg_data:
+  tokinomo_redis_data:
+  tokinomo_minio_data:
+  tokinomo_emqx_data:
