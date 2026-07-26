@@ -1,0 +1,81 @@
+/* Hallmark · macrostructure: Workbench · tone: technical · theme: Terminal
+ * genre: atmospheric · nav: N8 Terminal command · footer: Ft4 Dense typographic
+ * enrichment: none (CSS terminal panels) · audience: Baliyo ops + brand teams
+ * use: platform create-tenant · brand fleet overview
+ * pre-emit critique: P5 H4 E5 S4 R5 V4
+ * axes: dark / mono / phosphor
+ */
+
+:root {
+  --color-paper: oklch(11% 0.018 145);
+  --color-paper-2: oklch(15% 0.022 145);
+  --color-paper-3: oklch(19% 0.024 145);
+  --color-rule: oklch(28% 0.03 140);
+  --color-rule-2: oklch(40% 0.05 140);
+  --color-muted: oklch(58% 0.09 140);
+  --color-neutral: oklch(68% 0.12 140);
+  --color-ink-2: oklch(78% 0.14 138);
+  --color-ink: oklch(86% 0.16 138);
+  --color-accent: oklch(78% 0.19 138);
+  --color-accent-ink: oklch(78% 0.19 138);
+  --color-focus: oklch(86% 0.19 138);
+  --color-warn: oklch(78% 0.14 85);
+  --color-danger: oklch(68% 0.18 25);
+  --color-online: oklch(78% 0.19 138);
+  --color-offline: oklch(55% 0.04 140);
+
+  --font-display: var(--font-jetbrains), "IBM Plex Mono", ui-monospace, monospace;
+  --font-body: var(--font-jetbrains), "IBM Plex Mono", ui-monospace, monospace;
+  --font-label: var(--font-jetbrains), ui-monospace, monospace;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+
+  --text-display: clamp(2.25rem, 4vw + 1rem, 4rem);
+  --text-display-s: clamp(1.625rem, 2.25vw + 1rem, 2.5rem);
+  --text-xl: 1.5rem;
+  --text-2xl: 1.875rem;
+  --text-lg: 1.125rem;
+  --text-base: 0.9375rem;
+  --text-sm: 0.8125rem;
+  --text-xs: 0.75rem;
+
+  --tracking-display: 0.01em;
+  --tracking-label: 0.18em;
+
+  --lh-tight: 1.2;
+  --lh-snug: 1.35;
+  --lh-normal: 1.55;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+  --space-24: 6rem;
+
+  --page-gutter: clamp(1rem, 4vw, 2.5rem);
+  --measure: 70ch;
+  --section-gap: 5.5rem;
+
+  --radius-card: 0;
+  --radius-pill: 0;
+  --radius-input: 0;
+  --rule-hair: 1px;
+  --rule-card: 1px;
+  --shadow-card: none;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms;
+  --dur-short: 220ms;
+  --dur-long: 420ms;
+
+  --z-sticky-nav: 300;
+  --banner-height: 48px;
+}
