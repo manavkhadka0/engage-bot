@@ -1,0 +1,185 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "../tokens.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--color-paper);
+  --color-foreground: var(--color-ink);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-mono);
+  --font-heading: var(--font-display);
+  --color-sidebar-ring: var(--color-focus);
+  --color-sidebar-border: var(--color-rule);
+  --color-sidebar-accent-foreground: var(--color-ink);
+  --color-sidebar-accent: var(--color-paper-3);
+  --color-sidebar-primary-foreground: var(--color-paper);
+  --color-sidebar-primary: var(--color-accent);
+  --color-sidebar-foreground: var(--color-ink-2);
+  --color-sidebar: var(--color-paper-2);
+  --color-chart-5: var(--color-muted);
+  --color-chart-4: var(--color-neutral);
+  --color-chart-3: var(--color-ink-2);
+  --color-chart-2: var(--color-warn);
+  --color-chart-1: var(--color-accent);
+  --color-ring: var(--color-focus);
+  --color-input: var(--color-rule);
+  --color-border: var(--color-rule);
+  --color-destructive: var(--color-danger);
+  --color-accent-foreground: var(--color-paper);
+  --color-accent: var(--color-accent);
+  --color-muted-foreground: var(--color-muted);
+  --color-muted: var(--color-paper-3);
+  --color-secondary-foreground: var(--color-ink);
+  --color-secondary: var(--color-paper-3);
+  --color-primary-foreground: var(--color-paper);
+  --color-primary: var(--color-accent);
+  --color-popover-foreground: var(--color-ink);
+  --color-popover: var(--color-paper-2);
+  --color-card-foreground: var(--color-ink);
+  --color-card: var(--color-paper-2);
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-2xl: 0;
+  --radius-3xl: 0;
+  --radius-4xl: 0;
+}
+
+@layer base {
+  html,
+  body {
+    overflow-x: clip;
+  }
+
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    line-height: var(--lh-normal);
+    min-height: 100%;
+  }
+
+  ::selection {
+    background: color-mix(in oklch, var(--color-accent) 35%, transparent);
+    color: var(--color-ink);
+  }
+
+  a {
+    color: inherit;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: var(--tracking-display);
+    line-height: var(--lh-tight);
+    overflow-wrap: anywhere;
+    min-width: 0;
+  }
+}
+
+@layer utilities {
+  .font-mono-term {
+    font-family: var(--font-mono);
+  }
+
+  .text-muted-term {
+    color: var(--color-muted);
+  }
+
+  .text-accent-term {
+    color: var(--color-accent);
+  }
+
+  .border-term {
+    border-color: var(--color-rule);
+  }
+
+  .bg-panel {
+    background: var(--color-paper-2);
+  }
+
+  .bg-panel-2 {
+    background: var(--color-paper-3);
+  }
+
+  .page-gutter {
+    padding-inline: var(--page-gutter);
+  }
+
+  .section-gap {
+    padding-block: var(--section-gap);
+  }
+}
+
+/* Terminal caret — N8 nav only */
+@keyframes term-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.term-caret {
+  display: inline-block;
+  width: 1ch;
+  color: var(--color-accent);
+  animation: term-blink 1.05s steps(2) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .term-caret {
+    animation: none;
+    opacity: 1;
+  }
+
+  .term-fade,
+  .status-pulse {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@keyframes term-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.term-fade {
+  animation: term-fade-in var(--dur-short) var(--ease-out) both;
+}
+
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.status-pulse {
+  animation: status-pulse 1.8s var(--ease-in-out) infinite;
+}

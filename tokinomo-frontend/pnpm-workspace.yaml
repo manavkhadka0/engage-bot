@@ -1,0 +1,4 @@
+# Settings only — not a multi-package workspace.
+allowBuilds:
+  sharp: true
+  unrs-resolver: true

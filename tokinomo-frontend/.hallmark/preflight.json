@@ -1,0 +1,8 @@
+{
+  "scanned": "2026-07-26",
+  "framework": "Next.js 16 App Router",
+  "font": "JetBrains Mono (next/font)",
+  "palette": "Hallmark Terminal OKLCH tokens",
+  "motion": "CSS only (caret blink, fade, status pulse)",
+  "spacing": "4pt via --space-*"
+}
