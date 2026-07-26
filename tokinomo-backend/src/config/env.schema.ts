@@ -15,6 +15,17 @@ export const envSchema = z.object({
     .default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
   APP_URL: z.string().url().default('http://localhost:3000'),
+  FRONTEND_URL: z.string().url().default('http://localhost:3001'),
+  /** Comma-separated browser origins allowed to call the API (frontend). */
+  CORS_ORIGINS: z
+    .string()
+    .default('http://localhost:3001')
+    .transform((value) =>
+      value
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean),
+    ),
 
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().min(1).default('redis://localhost:6379'),

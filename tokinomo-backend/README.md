@@ -1,19 +1,10 @@
 # Tokinomo Backend
 
-Infra-first NestJS API for the Tokinomo multi-tenant fleet platform
-(Baliyo Ventures × Xtreme). Domain modules come later — this scaffold wires
-**Postgres/Timescale**, **Redis**, **MinIO**, **EMQX**, **Prisma**, and
-**OpenAPI → Scalar docs**.
+NestJS multi-tenant API for Tokinomo (Baliyo Ventures × Xtreme).
 
 Architecture refs: [`../team/BACKEND_ARCHITECTURE.md`](../team/BACKEND_ARCHITECTURE.md),
 [`../team/ARCHITECTURE.md`](../team/ARCHITECTURE.md),
 [`../team/CONTRACTS.md`](../team/CONTRACTS.md).
-
-## Prerequisites
-
-- Node.js 22+
-- [pnpm](https://pnpm.io) 9+
-- Docker + Docker Compose
 
 ## Quick start
 
@@ -21,8 +12,8 @@ Architecture refs: [`../team/BACKEND_ARCHITECTURE.md`](../team/BACKEND_ARCHITECT
 cp .env.example .env
 pnpm install
 pnpm docker:up
-pnpm prisma:generate
-pnpm prisma:migrate   # first time: creates tables from schema
+pnpm exec prisma db push
+pnpm seed:platform
 pnpm start:dev
 ```
 
@@ -30,43 +21,29 @@ pnpm start:dev
 |---|---|
 | http://localhost:3000/health | Liveness |
 | http://localhost:3000/docs | Scalar API reference |
-| http://localhost:3000/api-json | OpenAPI JSON (Frontend contract) |
-| http://localhost:9001 | MinIO console (`tokinomo` / `***REMOVED***`) |
-| http://localhost:18083 | EMQX dashboard (`admin` / `public`) |
+| http://localhost:3000/api-json | OpenAPI JSON |
+| http://localhost:3000/api/auth/* | Better Auth |
+| http://localhost:9001 | MinIO (`tokinomo` / `***REMOVED***`) |
+| http://localhost:18083 | EMQX (`admin` / `public`) |
 
-## Scripts
+## Auth (Better Auth)
 
-| Script | Purpose |
-|---|---|
-| `pnpm start:dev` | Nest watch mode |
-| `pnpm build` / `pnpm start:prod` | Production build + run |
-| `pnpm docker:up` / `pnpm docker:down` | Compose infra |
-| `pnpm prisma:generate` | Generate Prisma Client |
-| `pnpm prisma:migrate` | Run / create migrations |
-| `pnpm prisma:studio` | Prisma Studio |
+- Email/password + **email verification** (Resend; console log if no `RESEND_API_KEY`)
+- **Organization plugin** — org = tenant
+- Platform roles (`user.role`): `PLATFORM_OWNER`, `PLATFORM_OPERATOR`
+- Brand roles (`member.role`): `BRAND_ADMIN`, `BRAND_STAFF`, `BRAND_VIEWER`
+- Seed: `pnpm seed:platform` → `admin@baliyo.ventures` / `***REMOVED***`
 
-## Layout
+**Create tenant + brand admin** (platform session required):
 
-```
-src/
-  main.ts              # Swagger document + Scalar at /docs
-  config/              # zod-validated env
-  common/prisma/       # PrismaService (global)
-  common/decorators/   # (later: @Roles, @CurrentTenant)
-  common/filters/      # (later: zod pipes)
-  health/              # GET /health
-prisma/schema.prisma   # Data model from ARCHITECTURE §4
-docker-compose.yml     # timescale · redis · minio · emqx
-```
+`POST /tenants` `{ name, slug, tier, adminName, adminEmail, adminPassword }`
 
-## Out of scope (ask to add next)
+Credentials are emailed via Resend. Use `x-tenant-id` for platform impersonation.
 
-- BetterAuth + org tenancy + RLS
-- Domain modules (devices, audio, …)
-- MQTT ingestion worker + BullMQ jobs
-- Resend mail sending (env placeholder ready: `RESEND_API_KEY`)
+## Modules (documented in Scalar)
 
-## Email
+`tenants` · `users` · `devices` · `products` · `locations` · `audio` · `commands` · `analytics` · `config` · `health` · WS `/realtime` · BullMQ workers stub · MQTT ingestion stub
 
-Transactional email will use **Resend** (`RESEND_API_KEY`, `RESEND_FROM_EMAIL`).
-No local mail container.
+## Env
+
+See `.env.example` — notably `BETTER_AUTH_SECRET`, `RESEND_API_KEY`, `CORS_ORIGINS`, `FRONTEND_URL`, `DATABASE_URL`, `REDIS_URL`, `S3_*`, `MQTT_*`.

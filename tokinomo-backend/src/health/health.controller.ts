@@ -1,5 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 import { HealthService } from './health.service';
 
 @ApiTags('health')
@@ -8,6 +9,7 @@ export class HealthController {
   constructor(private readonly healthService: HealthService) {}
 
   @Get()
+  @AllowAnonymous()
   @ApiOperation({ summary: 'Liveness probe' })
   @ApiOkResponse({
     description: 'API process is up',

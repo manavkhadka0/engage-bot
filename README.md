@@ -25,3 +25,7 @@ Business, pricing, and proposal docs are kept privately by the founders and are 
 ## Backend
 
 NestJS API scaffold: [`tokinomo-backend/`](./tokinomo-backend/) — see its README for Docker + Scalar docs.
+
+## Frontend
+
+Next.js + TanStack Query scaffold: [`tokinomo-frontend/`](./tokinomo-frontend/) — own git repo; see its README.

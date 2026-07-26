@@ -3,6 +3,9 @@ cofounders/
 INDEX.md
 sync-cofounders.ps1
 
+# Separate app repo (own git history)
+tokinomo-frontend/
+
 # OS / editor junk
 .DS_Store
 Thumbs.db
