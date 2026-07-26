@@ -1,6 +1,6 @@
-// Prisma schema — Tokinomo platform data model
-// Source of truth: team/ARCHITECTURE.md §4
-// Timescale hypertable + RLS policies land in later SQL migrations.
+// Prisma schema — Better Auth + Tokinomo domain
+// Auth tables follow Better Auth (email/password + admin + organization plugins).
+// Domain tenant_id mirrors Better Auth organizationId.
 
 generator client {
   provider = "prisma-client-js"
@@ -11,13 +11,143 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── Better Auth core ───────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false) @map("email_verified")
+  image         String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // admin plugin — PLATFORM_OWNER | PLATFORM_OPERATOR | user (default)
+  role       String?   @default("user")
+  banned     Boolean?  @default(false)
+  banReason  String?   @map("ban_reason")
+  banExpires DateTime? @map("ban_expires")
+
+  sessions    Session[]
+  accounts    Account[]
+  members     Member[]
+  invitations Invitation[] @relation("InvitationInviter")
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime @map("expires_at")
+  token     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // organization plugin
+  activeOrganizationId String? @map("active_organization_id")
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  userId                String    @map("user_id")
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at")
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("verification")
+}
+
+// ─── Better Auth organization plugin ────────────────────────────────────────
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logo      String?
+  createdAt DateTime @default(now()) @map("created_at")
+  metadata  String?
+
+  members     Member[]
+  invitations Invitation[]
+  tenant      Tenant?
+
+  @@map("organization")
+}
+
+model Member {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String       @map("user_id")
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // BRAND_ADMIN | BRAND_STAFF | BRAND_VIEWER (or owner/admin/member aliases)
+  role           String
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@unique([organizationId, userId])
+  @@map("member")
+}
+
+model Invitation {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?
+  status         String
+  expiresAt      DateTime     @map("expires_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  inviterId      String       @map("inviter_id")
+  inviter        User         @relation("InvitationInviter", fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@map("invitation")
+}
+
+// ─── Tokinomo domain ────────────────────────────────────────────────────────
+
+/// Matches business tiers: Basic / Growth / Brand (Enterprise)
 enum TenantTier {
-  BASE
-  PLUS
+  BASIC
+  GROWTH
+  BRAND
 }
 
 enum TenantStatus {
   ACTIVE
+  SUSPENDED
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELLED
   SUSPENDED
 }
 
@@ -50,52 +180,63 @@ enum CommandStatus {
   FAILED
 }
 
-/// Brand / org mirror (BetterAuth organizationId = Tenant.id later)
+/// Brand mirror — id matches Better Auth Organization.id
 model Tenant {
-  id        String       @id @default(uuid()) @db.Uuid
-  name      String
-  slug      String       @unique
-  tier      TenantTier   @default(BASE)
-  status    TenantStatus @default(ACTIVE)
-  createdAt DateTime     @default(now()) @map("created_at")
-  updatedAt DateTime     @updatedAt @map("updated_at")
+  id             String       @id
+  organizationId String       @unique @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  slug           String       @unique
+  tier           TenantTier   @default(BASIC)
+  status         TenantStatus @default(ACTIVE)
+  /// White-label (Brand tier): logo URL / subdomain slug
+  brandLogoUrl   String?      @map("brand_logo_url")
+  brandDomain    String?      @map("brand_domain")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
 
-  users      User[]
-  products   Product[]
-  locations  Location[]
-  devices    Device[]
-  audioClips AudioClip[]
-  events     DeviceEvent[]
+  products     Product[]
+  locations    Location[]
+  devices      Device[]
+  audioClips   AudioClip[]
+  events       DeviceEvent[]
+  subscription Subscription?
 
   @@map("tenant")
 }
 
-model User {
-  id        String   @id @default(uuid()) @db.Uuid
-  /// null = platform (Baliyo) user
-  tenantId  String?  @map("tenant_id") @db.Uuid
-  email     String   @unique
-  name      String?
-  role      String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+/// Per-tenant recurring platform subscription (land-and-expand after 6 mo trial)
+model Subscription {
+  id                 String             @id @default(cuid())
+  tenantId           String             @unique @map("tenant_id")
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tier               TenantTier         @default(BASIC)
+  status             SubscriptionStatus @default(TRIAL)
+  /// NPR per device / month at current tier
+  pricePerDeviceNpr  Int                @map("price_per_device_npr")
+  /// Included free months from hardware sale (default 6)
+  trialMonths        Int                @default(6) @map("trial_months")
+  trialEndsAt        DateTime           @map("trial_ends_at")
+  currentPeriodStart DateTime           @map("current_period_start")
+  currentPeriodEnd   DateTime           @map("current_period_end")
+  cancelledAt        DateTime?          @map("cancelled_at")
+  notes              String?
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
 
-  tenant Tenant? @relation(fields: [tenantId], references: [id])
-
-  @@index([tenantId])
-  @@map("user")
+  @@map("subscription")
 }
 
 model Product {
-  id        String   @id @default(uuid()) @db.Uuid
-  tenantId  String   @map("tenant_id") @db.Uuid
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
   name      String
   sku       String
   imageKey  String?  @map("image_key")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  tenant  Tenant   @relation(fields: [tenantId], references: [id])
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   devices Device[]
 
   @@unique([tenantId, sku])
@@ -104,8 +245,8 @@ model Product {
 }
 
 model Location {
-  id        String   @id @default(uuid()) @db.Uuid
-  tenantId  String   @map("tenant_id") @db.Uuid
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
   name      String
   address   String?
   lat       Float?
@@ -113,7 +254,7 @@ model Location {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  tenant  Tenant   @relation(fields: [tenantId], references: [id])
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   devices Device[]
 
   @@index([tenantId])
@@ -121,18 +262,17 @@ model Location {
 }
 
 model Device {
-  id           String       @id @default(uuid()) @db.Uuid
-  serial       String       @unique
-  /// null until platform assigns to a tenant
-  tenantId     String?      @map("tenant_id") @db.Uuid
-  locationId   String?      @map("location_id") @db.Uuid
-  productId    String?      @map("product_id") @db.Uuid
-  fwVersion    String?      @map("fw_version")
-  status       DeviceStatus @default(UNASSIGNED)
-  provisionToken String?    @map("provision_token")
-  lastSeen     DateTime?    @map("last_seen")
-  createdAt    DateTime     @default(now()) @map("created_at")
-  updatedAt    DateTime     @updatedAt @map("updated_at")
+  id             String       @id @default(cuid())
+  serial         String       @unique
+  tenantId       String?      @map("tenant_id")
+  locationId     String?      @map("location_id")
+  productId      String?      @map("product_id")
+  fwVersion      String?      @map("fw_version")
+  status         DeviceStatus @default(UNASSIGNED)
+  provisionToken String?      @map("provision_token")
+  lastSeen       DateTime?    @map("last_seen")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
 
   tenant      Tenant?       @relation(fields: [tenantId], references: [id])
   location    Location?     @relation(fields: [locationId], references: [id])
@@ -147,8 +287,8 @@ model Device {
 }
 
 model AudioClip {
-  id         String   @id @default(uuid()) @db.Uuid
-  tenantId   String   @map("tenant_id") @db.Uuid
+  id         String   @id @default(cuid())
+  tenantId   String   @map("tenant_id")
   name       String
   storageKey String   @map("storage_key")
   durationMs Int?     @map("duration_ms")
@@ -157,7 +297,7 @@ model AudioClip {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
-  tenant      Tenant        @relation(fields: [tenantId], references: [id])
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   deviceAudio DeviceAudio[]
 
   @@index([tenantId])
@@ -165,8 +305,8 @@ model AudioClip {
 }
 
 model DeviceAudio {
-  deviceId    String  @map("device_id") @db.Uuid
-  audioClipId String  @map("audio_clip_id") @db.Uuid
+  deviceId    String  @map("device_id")
+  audioClipId String  @map("audio_clip_id")
   active      Boolean @default(true)
 
   device    Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
@@ -176,18 +316,17 @@ model DeviceAudio {
   @@map("device_audio")
 }
 
-/// Telemetry events — promote to Timescale hypertable in a later migration
 model DeviceEvent {
-  id       String          @id @default(uuid()) @db.Uuid
-  deviceId String          @map("device_id") @db.Uuid
-  tenantId String          @map("tenant_id") @db.Uuid
+  id       String          @id @default(cuid())
+  deviceId String          @map("device_id")
+  tenantId String          @map("tenant_id")
   ts       DateTime        @default(now())
   type     DeviceEventType
   dwellMs  Int?            @map("dwell_ms")
   meta     Json?
 
   device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, ts])
   @@index([deviceId, ts])
@@ -195,8 +334,8 @@ model DeviceEvent {
 }
 
 model Command {
-  id        String        @id @default(uuid()) @db.Uuid
-  deviceId  String        @map("device_id") @db.Uuid
+  id        String        @id @default(cuid())
+  deviceId  String        @map("device_id")
   type      CommandType
   payload   Json
   status    CommandStatus @default(QUEUED)
