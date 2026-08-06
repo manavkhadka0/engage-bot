@@ -1,0 +1,6 @@
+CONFIG_TOUCH_SUPPRESS_DEPRECATE_WARN=y
+
+# Presigned S3 download URLs in audio_update payloads can run 300-500+ bytes
+# once signed; the 1024-byte default (topic+payload shared) can truncate them.
+CONFIG_MQTT_USE_CUSTOM_CONFIG=y
+CONFIG_MQTT_BUFFER_SIZE=2048
