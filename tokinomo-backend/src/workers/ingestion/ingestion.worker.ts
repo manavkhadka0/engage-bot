@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import {
   CommandStatus,
+  type Device,
   DeviceEventType,
   DeviceStatus,
 } from '@prisma/client';
@@ -67,15 +68,7 @@ export class IngestionWorker implements OnModuleInit {
     }
 
     try {
-      if (channel === 'status') {
-        await this.onStatus(tenantId, deviceId, data as StatusMsg);
-      } else if (channel === 'event') {
-        await this.onEvent(tenantId, deviceId, data as EventMsg);
-      } else if (channel === 'ack') {
-        await this.onAck(tenantId, deviceId, data as AckMsg);
-      } else if (channel === 'telemetry') {
-        await this.onTelemetry(tenantId, deviceId, data as Record<string, unknown>);
-      }
+      await this.route(tenantId, deviceId, channel, data);
     } catch (err) {
       this.logger.error(`Ingest failed ${topic}: ${String(err)}`);
     }
@@ -88,37 +81,66 @@ export class IngestionWorker implements OnModuleInit {
     channel: 'status' | 'event' | 'ack' | 'telemetry',
     data: unknown,
   ) {
+    await this.route(tenantId, deviceId, channel, data);
+  }
+
+  /**
+   * Every ingest path funnels through here so the device's *assigned*
+   * tenantId (not whatever the message claims) is the source of truth —
+   * a message on t/{tenantId}/d/{deviceId}/... only gets processed if
+   * {deviceId} is actually assigned to {tenantId}. Otherwise it's dropped
+   * as a spoof/misconfiguration rather than silently reassigning the device.
+   */
+  private async route(
+    tenantId: string,
+    deviceId: string,
+    channel: string,
+    data: unknown,
+  ) {
+    const device = await this.prisma.device.findUnique({
+      where: { id: deviceId },
+    });
+    if (!device) {
+      this.logger.warn(
+        `Ingest from unknown device ${deviceId} (topic tenant ${tenantId})`,
+      );
+      return;
+    }
+    if (device.tenantId !== tenantId) {
+      this.logger.warn(
+        `Rejected ingest for device ${deviceId}: topic tenant ${tenantId} ` +
+          `!= assigned tenant ${device.tenantId ?? 'none'}`,
+      );
+      return;
+    }
+
     if (channel === 'status') {
-      await this.onStatus(tenantId, deviceId, data as StatusMsg);
+      await this.onStatus(device, data as StatusMsg);
     } else if (channel === 'event') {
-      await this.onEvent(tenantId, deviceId, data as EventMsg);
+      await this.onEvent(device, data as EventMsg);
     } else if (channel === 'ack') {
-      await this.onAck(tenantId, deviceId, data as AckMsg);
-    } else {
-      await this.onTelemetry(tenantId, deviceId, data as Record<string, unknown>);
+      await this.onAck(device, data as AckMsg);
+    } else if (channel === 'telemetry') {
+      await this.onTelemetry(device, data as Record<string, unknown>);
     }
   }
 
-  private async onStatus(
-    tenantId: string,
-    deviceId: string,
-    msg: StatusMsg,
-  ) {
+  private async onStatus(device: Device, msg: StatusMsg) {
+    const tenantId = device.tenantId!;
     const status =
       msg.status === 'online' ? DeviceStatus.ONLINE : DeviceStatus.OFFLINE;
-    const device = await this.prisma.device.update({
-      where: { id: deviceId },
+    await this.prisma.device.update({
+      where: { id: device.id },
       data: {
         status,
         lastSeen: new Date(),
         fwVersion: msg.fw ?? undefined,
-        tenantId,
       },
     });
 
     await this.prisma.deviceEvent.create({
       data: {
-        deviceId,
+        deviceId: device.id,
         tenantId,
         type:
           status === DeviceStatus.ONLINE
@@ -129,7 +151,7 @@ export class IngestionWorker implements OnModuleInit {
     });
 
     this.realtime.emitDeviceStatus(tenantId, {
-      deviceId,
+      deviceId: device.id,
       serial: device.serial,
       status,
       fw: msg.fw,
@@ -137,7 +159,8 @@ export class IngestionWorker implements OnModuleInit {
     });
   }
 
-  private async onEvent(tenantId: string, deviceId: string, msg: EventMsg) {
+  private async onEvent(device: Device, msg: EventMsg) {
+    const tenantId = device.tenantId!;
     const typeMap: Record<string, DeviceEventType> = {
       detection: DeviceEventType.DETECTION,
       dwell: DeviceEventType.DWELL,
@@ -147,13 +170,13 @@ export class IngestionWorker implements OnModuleInit {
     if (!type) return;
 
     await this.prisma.device.update({
-      where: { id: deviceId },
+      where: { id: device.id },
       data: { lastSeen: new Date(), status: DeviceStatus.ONLINE },
     });
 
     const event = await this.prisma.deviceEvent.create({
       data: {
-        deviceId,
+        deviceId: device.id,
         tenantId,
         type,
         dwellMs: msg.dwell_ms,
@@ -163,7 +186,7 @@ export class IngestionWorker implements OnModuleInit {
     });
 
     this.realtime.emitDeviceEvent(tenantId, {
-      deviceId,
+      deviceId: device.id,
       type,
       dwellMs: msg.dwell_ms,
       eventId: event.id,
@@ -171,9 +194,10 @@ export class IngestionWorker implements OnModuleInit {
     });
   }
 
-  private async onAck(tenantId: string, deviceId: string, msg: AckMsg) {
+  private async onAck(device: Device, msg: AckMsg) {
+    const tenantId = device.tenantId!;
     const command = await this.prisma.command.findFirst({
-      where: { id: msg.id, deviceId },
+      where: { id: msg.id, deviceId: device.id },
     });
     if (!command) return;
 
@@ -190,7 +214,7 @@ export class IngestionWorker implements OnModuleInit {
     });
 
     this.realtime.emitDeviceEvent(tenantId, {
-      deviceId,
+      deviceId: device.id,
       type: 'command.ack',
       commandId: msg.id,
       ok: msg.ok,
@@ -198,23 +222,18 @@ export class IngestionWorker implements OnModuleInit {
     });
   }
 
-  private async onTelemetry(
-    tenantId: string,
-    deviceId: string,
-    msg: Record<string, unknown>,
-  ) {
+  private async onTelemetry(device: Device, msg: Record<string, unknown>) {
+    const tenantId = device.tenantId!;
     await this.prisma.device.update({
-      where: { id: deviceId },
+      where: { id: device.id },
       data: {
         lastSeen: new Date(),
         status: DeviceStatus.ONLINE,
-        fwVersion:
-          typeof msg.fw === 'string' ? msg.fw : undefined,
-        tenantId,
+        fwVersion: typeof msg.fw === 'string' ? msg.fw : undefined,
       },
     });
     this.realtime.emitDeviceStatus(tenantId, {
-      deviceId,
+      deviceId: device.id,
       status: DeviceStatus.ONLINE,
       telemetry: msg,
     });

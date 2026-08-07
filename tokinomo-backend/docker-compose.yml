@@ -80,8 +80,11 @@ services:
       EMQX_NAME: tokinomo
       EMQX_DASHBOARD__DEFAULT_USERNAME: admin
       EMQX_DASHBOARD__DEFAULT_PASSWORD: ***REMOVED***
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     volumes:
       - tokinomo_emqx_data:/opt/emqx/data
+      - ./emqx/emqx.conf:/opt/emqx/etc/emqx.conf:ro
     healthcheck:
       test: ['CMD', 'emqx', 'ctl', 'status']
       interval: 10s

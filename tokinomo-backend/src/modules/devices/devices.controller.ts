@@ -21,6 +21,22 @@ class AssignDto extends createZodDto(
   }),
 ) {}
 
+class SendCommandDto extends createZodDto(
+  z
+    .object({
+      type: z.enum(['play', 'reboot', 'config']),
+      clipId: z.string().optional(),
+      dwellMs: z.number().int().positive().optional(),
+      cooldownMs: z.number().int().positive().optional(),
+      volume: z.number().int().min(0).max(100).optional(),
+      ledColor: z.string().optional(),
+    })
+    .refine((d) => d.type !== 'play' || !!d.clipId, {
+      message: 'clipId is required for type=play',
+      path: ['clipId'],
+    }),
+) {}
+
 class SimulateDto extends createZodDto(
   z.object({
     action: z.enum([
@@ -87,6 +103,23 @@ export class DevicesController {
     @Body() dto: AssignDto,
   ) {
     return this.devices.assign(sessionToAuth(session, tenantHeader), id, dto);
+  }
+
+  @Post(':id/command')
+  @ApiOperation({
+    summary: 'Send a play/config/reboot command to a device (cmd channel)',
+  })
+  sendCommand(
+    @Session() session: UserSession,
+    @Headers(TENANT_ID_HEADER) tenantHeader: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: SendCommandDto,
+  ) {
+    return this.devices.sendCommand(
+      sessionToAuth(session, tenantHeader),
+      id,
+      dto,
+    );
   }
 
   @Post(':id/simulate')
