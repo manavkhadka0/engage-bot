@@ -4,13 +4,32 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomBytes } from 'crypto';
-import { DeviceStatus, Prisma } from '@prisma/client';
+import { CommandStatus, CommandType, DeviceStatus, Prisma } from '@prisma/client';
 import type { AuthContext } from '../../common/guards/roles.guard';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { CommandPublisher } from '../../workers/jobs/command-publisher';
+
+export interface SendCommandDto {
+  type: 'play' | 'reboot' | 'config';
+  clipId?: string;
+  dwellMs?: number;
+  cooldownMs?: number;
+  volume?: number;
+  ledColor?: string;
+}
+
+const COMMAND_TYPE_MAP: Record<SendCommandDto['type'], CommandType> = {
+  play: CommandType.PLAY,
+  reboot: CommandType.REBOOT,
+  config: CommandType.CONFIG,
+};
 
 @Injectable()
 export class DevicesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly commands: CommandPublisher,
+  ) {}
 
   list(auth: AuthContext, status?: DeviceStatus) {
     const where: Prisma.DeviceWhereInput = {};
@@ -65,6 +84,45 @@ export class DevicesService {
         status: DeviceStatus.OFFLINE,
       },
     });
+  }
+
+  async sendCommand(auth: AuthContext, id: string, dto: SendCommandDto) {
+    const device = await this.prisma.device.findUnique({ where: { id } });
+    if (!device) throw new NotFoundException('Device not found');
+    this.assertAccess(auth, device.tenantId);
+    if (!device.tenantId) {
+      throw new ForbiddenException('Device is not assigned to a tenant');
+    }
+    if (dto.type === 'play' && !dto.clipId) {
+      throw new ForbiddenException('clipId is required for type=play');
+    }
+
+    const payload: Prisma.InputJsonValue =
+      dto.type === 'play'
+        ? { clipId: dto.clipId }
+        : dto.type === 'config'
+          ? {
+              dwellMs: dto.dwellMs,
+              cooldownMs: dto.cooldownMs,
+              volume: dto.volume,
+              ledColor: dto.ledColor,
+            }
+          : {};
+
+    const command = await this.prisma.command.create({
+      data: {
+        deviceId: device.id,
+        type: COMMAND_TYPE_MAP[dto.type],
+        status: CommandStatus.QUEUED,
+        payload,
+      },
+    });
+
+    const published = await this.commands.publishCommands([command.id], {
+      simulateAck: true,
+    });
+
+    return { command, published };
   }
 
   private assertAccess(auth: AuthContext, tenantId: string | null) {

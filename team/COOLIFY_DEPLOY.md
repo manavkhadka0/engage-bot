@@ -9,9 +9,21 @@
 | `postgres` | `timescale/timescaledb:latest-pg16` | 5432 | Internal |
 | `redis` | `redis:7-alpine` | 6379 | BullMQ |
 | `minio` | `minio/minio` | 9000 | Audio storage |
-| `emqx` | `emqx/emqx:5.8.6` | 1883 / 18083 | MQTT (firmware later) |
+| `emqx` | `emqx/emqx:5.8.6` | 1883 / 18083 | MQTT — per-device auth + ACL via `api` (Contract ④) |
 
 Local stack: `tokinomo-backend/docker-compose.yml`.
+
+## EMQX auth (Contract ④ — per-device serial+token)
+
+`tokinomo-backend/emqx/emqx.conf` wires EMQX's HTTP auth/authz to the
+backend's `/mqtt/auth` and `/mqtt/acl` endpoints (`src/modules/mqtt-auth`).
+Locally it points at `http://host.docker.internal:3000` since the backend
+runs on the host, not in docker-compose. **In Coolify, edit both `url`
+fields in that file to `http://api:3000`** (the backend service name in the
+same project network) before deploying `emqx`. First boot imports
+`emqx.conf`'s `authentication`/`authorization` into EMQX's runtime store —
+a later plain restart won't re-read the file, so bump/recreate the `emqx`
+volume if you change these URLs post-deploy.
 
 ## API env (Coolify)
 
@@ -29,6 +41,10 @@ S3_SECRET_ACCESS_KEY=…
 S3_BUCKET=tokinomo
 S3_FORCE_PATH_STYLE=true
 MQTT_URL=mqtt://emqx:1883
+# Backend's own superuser credential for EMQX (see src/modules/mqtt-auth) —
+# devices authenticate separately with serial+provisionToken, not this.
+MQTT_USERNAME=tokinomo-backend
+MQTT_PASSWORD=<long-random>
 BETTER_AUTH_SECRET=<long-random>
 BETTER_AUTH_URL=https://app.yourdomain.com
 RESEND_API_KEY=…
