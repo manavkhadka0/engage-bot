@@ -57,7 +57,7 @@ are the entire reason the teams can build independently.
 | ② | **REST + WebSocket API** | Backend ↔ Frontend | Backend (OpenAPI spec) | Endpoints, request/response types, auth, WS events |
 | ③ | **Audio file spec** | Electronics ↔ Backend ↔ Brand | Electronics sets limits | Format (e.g. WAV/MP3), sample rate, max size/length, checksum |
 | ④ | **Device provisioning record** | Electronics ↔ Backend | Backend | Serial format, token, firmware version reporting |
-| ⑤ | **Physical interface** | Mechanical ↔ Electronics | Mechanical | Board dimensions, mount points, connector positions, servo throw, speaker & LED cutouts |
+| ⑤ | **Physical interface** | Mechanical ↔ Electronics | Mechanical | Board dimensions, mount points, connector positions, motor travel + limit-switch positions, speaker & LED cutouts |
 
 **Deliverable for week 1:** a short `CONTRACTS.md` capturing ①–⑤. Everything
 below builds against it.
@@ -70,11 +70,11 @@ below builds against it.
 
 ### Owns
 - Circuit design (matrix board → PCB), sensor selection & tuning, power system.
-- ESP32-S3 firmware: interaction state machine, audio playback, LED/servo control, MQTT client, OTA.
+- ESP32-S3 firmware: interaction state machine, audio playback, LED/motor control, MQTT client, OTA.
 - Component procurement.
 
 ### Stack / tools
-`PlatformIO + Arduino-ESP32` · `FastLED` · `ESP32Servo` · `LD2410 lib` · I²S audio · `LittleFS` · `PubSubClient`/MQTT · `ArduinoJson`.
+`PlatformIO + Arduino-ESP32` · `FastLED` · motor driver via GPIO + `ledcWrite` PWM (no dedicated lib) · `LD2410 lib` · I²S audio · `LittleFS` · `PubSubClient`/MQTT · `ArduinoJson`.
 
 ### Consumes (depends on)
 - Contract ① (MQTT), ③ (audio spec), ⑤ (physical interface from Mechanical).
@@ -88,7 +88,7 @@ below builds against it.
 - **Day 1: gather ALL components** (the whole project unblocks on this — import-first items: ESP32-S3, LD2410, MAX98357A).
 - Bring up ESP32-S3 on Wi-Fi; read LD2410 raw data.
 - Audio playback from flash; tune dwell threshold.
-- Wire servo + LEDs; run the full state machine on one unit.
+- Wire motor driver + limit switches + LEDs; run the full state machine on one unit.
 - Replicate across 4–5 matrix-board units; stress-test Wi-Fi drop/reconnect.
 
 ### v1 behaviour (locked)
@@ -100,7 +100,7 @@ One unit runs detect→(dwell logged)→perform→cooldown→log reliably; 4–5
 
 ### Firmware scope (from ARCHITECTURE §8)
 ```
-firmware/  net/(wifi,mqtt,ota)  sensors/(ld2410)  actuators/(servo,leds)
+firmware/  net/(wifi,mqtt,ota)  sensors/(ld2410)  actuators/(motor,leds)
            audio/(player)  logic/(interaction state machine)  telemetry/(reporter)
 ```
 
@@ -179,16 +179,16 @@ A brand admin can log in, see only their devices, watch live status, view analyt
 **Mission:** a shelf-ready body that holds the electronics, moves the product, and survives months in a shop.
 
 ### Owns
-- Enclosure design, the product **gripper/mover** mechanism, sensor & servo mounts, speaker grille + LED diffusion, battery access, shelf-fixing method, dust/ingress and basic thermal.
+- Enclosure design, the product **gripper/mover** mechanism, sensor & motor/limit-switch mounts, speaker grille + LED diffusion, battery access, shelf-fixing method, dust/ingress and basic thermal.
 
 ### Stack / tools
 CAD (Fusion 360 / SolidWorks) · 3D printing (PETG prototype → MJF/SLS nylon for the 100 run) · DFM.
 
 ### Consumes (depends on)
-- Contract ⑤ (board size, connector/mount positions, servo throw, component clearances from Electronics).
+- Contract ⑤ (board size, connector/mount positions, motor travel + limit-switch positions, component clearances from Electronics).
 
 ### Produces (provides to others)
-- Mounting constraints back to Electronics (where the sensor faces, how the servo couples to the product).
+- Mounting constraints back to Electronics (where the sensor faces, how the gear motor couples to the product).
 
 ### Sprint-01 tasks (runs side-by-side)
 - Review reference designs; sketch enclosure sized to Xtreme's bottles/cans.
@@ -201,7 +201,7 @@ A printed enclosure holds the electronics, presents the product, aims the mmWave
 
 ### Open mechanical decisions
 - Shelf fixing: clamp vs adhesive vs bracket.
-- Gripper style: lift, rock, or push motion (drives servo choice with Electronics).
+- Gripper style: lift, rock, or push motion (drives gear-motor/limit-switch layout with Electronics).
 - Production method for the 100 run (decide after validation).
 
 ---

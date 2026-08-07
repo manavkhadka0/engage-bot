@@ -33,7 +33,7 @@
 ```mermaid
 graph TB
     subgraph Field["🏬 Retail floor"]
-        DEV["Tokinomo device<br/>ESP32-S3 · mmWave · servo · LEDs · audio"]
+        DEV["Tokinomo device<br/>ESP32-S3 · mmWave · gear motor · LEDs · audio"]
     end
 
     subgraph Cloud["☁️ Tokinomo Platform"]
@@ -444,7 +444,7 @@ graph TB
     end
     SENSE -->|presence/dwell queue| LOGIC
     LOGIC -->|play cmd| AUDIOt
-    LOGIC -->|servo + LED| ACT["Actuators"]
+    LOGIC -->|motor + LED| ACT["Actuators"]
     LOGIC -->|events| TEL
     NET <-->|MQTT| TEL
     NET --> OTAt
@@ -463,7 +463,7 @@ stateDiagram-v2
     DETECTED --> IDLE: left quickly
     PERFORM --> COOLDOWN: sequence done
     COOLDOWN --> IDLE: timer elapsed
-    PERFORM: servo moves · LEDs pulse · audio plays · log event
+    PERFORM: motor moves to limit switch · LEDs pulse · audio plays · log event
 ```
 
 **v1 behaviour:** one audio line on trigger, then a **cooldown** before it can
@@ -486,7 +486,7 @@ firmware/
 │  ├─ sensors/
 │  │  └─ ld2410.cpp           # mmWave parse, presence + dwell
 │  ├─ actuators/
-│  │  ├─ servo.cpp
+│  │  ├─ motor.cpp            # gear motor + driver + limit switches
 │  │  └─ leds.cpp             # WS2812 (FastLED)
 │  ├─ audio/
 │  │  └─ player.cpp           # I²S → MAX98357A from LittleFS
@@ -511,7 +511,7 @@ void interactionLoop() {
       else if (millis() - tEnter > DWELL_MS) state = PERFORM;
       break;
     case PERFORM:
-      servo.playGesture();            // move the product
+      motor.moveToLimit();            // drive out to the limit switch, then home
       leds.pulse(brandColor);         // WS2812 attention effect
       audio.play(activeClip);         // I²S clip from flash
       reporter.event("dwell", millis() - tEnter);
@@ -674,7 +674,7 @@ services are already containerised.
 1. **Contracts first** — lock the MQTT topics + JSON event/command schemas (§6). Firmware and backend build against these in parallel.
 2. **Backend skeleton** — NestJS + Prisma schema + auth + tenants/devices modules + RLS migration.
 3. **Ingestion path** — EMQX + ingestion worker writing `DEVICE_EVENT`; device shows online.
-4. **Firmware loop** — state machine → servo/LED/audio → publish events (§8).
+4. **Firmware loop** — state machine → motor/LED/audio → publish events (§8).
 5. **Audio push** — upload → object storage → `audio_update` command → device ack.
 6. **Dashboard** — brand workspace (device status + analytics) then super-admin console.
 7. **Provisioning UX** — register/assign flow; Wi-Fi onboarding portal.
