@@ -153,7 +153,7 @@ uploads is guaranteed to play on-device.
 |---|---|
 | **WAV, PCM, mono, 16 kHz, 16-bit** ✅ | **Zero decode cost** on the ESP32 — stream straight to I²S. Deterministic, no codec/licensing surprises. Perfect for short shelf lines. |
 | MP3 | ⚠️ ~10× smaller, but needs a decoder library + CPU headroom. Move here **only** if flash space or download size becomes the constraint. |
-| OGG/Opus | ⚠️ Best compression, but heavier decode on an MCU already juggling Wi-Fi + servo. Not worth it for a few-second clip. |
+| OGG/Opus | ⚠️ Best compression, but heavier decode on an MCU already juggling Wi-Fi + motor. Not worth it for a few-second clip. |
 
 **Trade-off, stated:** we optimise for **reliable playback on a busy MCU** over
 file size, because clips are short and stored locally. Flash is 16 MB — plenty for
@@ -211,7 +211,7 @@ the brand workspace.
 ## ⑤ Physical interface  (Mechanical ↔ Electronics)
 
 **What it defines:** the mechanical envelope so the enclosure and the board fit,
-the sensor aims correctly, and the servo can actually move the product.
+the sensor aims correctly, and the gear motor can actually move the product.
 
 **Why Mechanical owns this doc (not Electronics):** the enclosure is the harder
 thing to change late — a PCB respin is a week, a re-tooled/re-printed body plus
@@ -222,15 +222,15 @@ designs the board **to fit it**, co-signing the constraints.
 | Item | Why it matters |
 |---|---|
 | Board outline + mount-hole positions | Board must seat in the body |
-| Connector & port positions (USB, power, speaker, servo leads) | Access + cable routing |
+| Connector & port positions (USB, power, speaker, motor, limit switch leads) | Access + cable routing |
 | **mmWave aiming window** | Radar must see the aisle — no metal/obstruction in front |
-| Servo location + **throw envelope** | The arm must reach and move the product without fouling the case |
+| Gear motor location + **travel envelope** + limit-switch mount points | The arm must reach and move the product without fouling the case, and the limit switches must trip at the intended end-stops |
 | Speaker grille + LED light-pipe/window | Sound out, light visible |
 | Battery compartment + access | Swap/charge without a full teardown |
 | Heat sources + ventilation | ESP32 + amp + buck shouldn't cook the pack |
 
 ### Roles
-- **Mechanical** owns and maintains the interface doc + CAD. **Electronics** is consulted (supplies board size, component heights, servo throw, sensor facing) and co-signs. **Lead** approves the go-to-print geometry.
+- **Mechanical** owns and maintains the interface doc + CAD. **Electronics** is consulted (supplies board size, component heights, motor travel + limit-switch positions, sensor facing) and co-signs. **Lead** approves the go-to-print geometry.
 
 ---
 

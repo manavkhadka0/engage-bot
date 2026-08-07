@@ -16,7 +16,7 @@ week (~Aug 13) — **after** this sprint ends. It's also not the part
 assume (HLK-LD2410) — protocol/driver work needs to start from the datasheet,
 not from the existing `ld2410` library assumption.
 
-**Everything else is unblocked.** Servo + WS2812 LEDs are locally sourced
+**Everything else is unblocked.** The gear motor + driver + limit switches + WS2812 LEDs are locally sourced
 (not stuck in customs). MQTT, backend, and dashboard are pure software,
 testable today via **Simulate** on `/admin/devices` — no firmware required.
 
@@ -69,7 +69,7 @@ to `cmd`, handles `audio_update`, publishes `ack`, publishes `status:online`).
 - [ ] Extend `cmd` dispatch to `play` / `config` / `reboot` (needs Backend's
       command-send path above to test against).
 - [ ] Publish `event: play` after a clip finishes.
-- [ ] Servo + WS2812 actuator drivers, bench-tested standalone.
+- [ ] Gear motor (H-bridge driver + limit switch homing) + WS2812 actuator drivers, bench-tested standalone.
 - [ ] **Interaction state machine**
       (`IDLE → DETECTED → PERFORM → COOLDOWN → IDLE`) built against a **fake
       trigger** (boot-button press or a test MQTT `cmd`) standing in for

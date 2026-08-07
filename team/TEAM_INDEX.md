@@ -79,7 +79,7 @@ flowchart LR
 
 ## Locked decisions (quick reference)
 
-- **Processor:** ESP32-S3 N16R8 · **Sensor:** mmWave (LD2410) · **Audio:** MAX98357A, uploaded WAV clips · **Motion:** metal-gear micro servo · **Light:** WS2812B
+- **Processor:** ESP32-S3 N16R8 · **Sensor:** mmWave (HLK-LD116s) · **Audio:** MAX98357A, uploaded WAV clips · **Motion:** planetary gear motor + H-bridge driver + limit switch(es) · **Light:** WS2812B
 - **Power:** 2S 18650 + BMS + AC charging · **Connectivity:** Wi-Fi only (no SIM)
 - **Auth/tenancy:** BetterAuth organizations + Postgres RLS · **Hosting:** Coolify + Docker
 - **v1 interaction:** one audio line + cooldown (dwell logged) · **Prototype:** 4–5 on matrix board → PCB

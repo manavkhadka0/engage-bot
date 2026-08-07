@@ -37,8 +37,10 @@ Parts for **one** device. Sourcing is for Nepal / Kathmandu:
 
 | # | Item | Suggested part | Qty | Purpose | Sourcing |
 |---|---|---|---|---|---|
-| 6 | Servo | **MG90S** (metal gear) or MG996R for more torque | 1 | Move / grip the product | Local |
-| 7 | Bulk capacitor | 1000 µF electrolytic | 1 | Absorb servo current spikes on 5 V rail | Local |
+| 6 | Gear motor | Planetary gear DC motor (model/torque TBD) | 1 | Move / grip the product | Local/Import |
+| 6b | Motor driver | H-bridge driver — e.g. TB6612FNG / L298N / DRV8833 (confirm) | 1 | Drive the gear motor from ESP32 GPIO (2× direction + PWM) | Local/Import |
+| 6c | Limit switch | Micro limit switch, SPDT | 1–2 | Home / end-stop the motor travel | Local |
+| 7 | Bulk capacitor | 1000 µF electrolytic | 1 | Absorb motor current spikes on 5 V rail (esp. stall at limit switch) | Local |
 
 ## Light effect (optional, cheap)
 
@@ -63,7 +65,7 @@ Parts for **one** device. Sourcing is for Nepal / Kathmandu:
 |---|---|---|---|---|
 | 15 | Matrix / perfboard | 1 | Prototype circuit (pre-PCB) | Local |
 | 16 | Jumper wires + headers | set | Wiring | Local |
-| 17 | Connectors (JST etc.) | set | Battery / servo / speaker leads | Local |
+| 17 | Connectors (JST etc.) | set | Battery / motor / limit switch / speaker leads | Local |
 | 18 | Resistors, caps, LEDs | set | Support components | Local |
 | 19 | Switch / power button | 1 | On/off | Local |
 
@@ -78,8 +80,9 @@ These are the long-lead / not-reliably-local items — get them moving on day 1:
 4. (Optional) external **SPI flash** chips
 
 ## Locally available (buy as needed)
-Servos, speakers, 18650 cells + holders, BMS, chargers, AC adapters, buck
-converters, perfboard, wires, connectors, passives, LEDs, switches.
+Gear motors, motor drivers, limit switches, speakers, 18650 cells + holders,
+BMS, chargers, AC adapters, buck converters, perfboard, wires, connectors,
+passives, LEDs, switches.
 
 ---
 
