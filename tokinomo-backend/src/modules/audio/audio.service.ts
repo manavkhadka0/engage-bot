@@ -13,7 +13,44 @@ import { BillingService } from '../billing/billing.service';
 import { maxAudioClips } from '../billing/tier-catalog';
 import { CommandPublisher } from '../../workers/jobs/command-publisher';
 
-const MAX_AUDIO_BYTES = 512 * 1024;
+const MAX_AUDIO_BYTES = 4 * 1024 * 1024;
+
+interface WavFormat {
+  numChannels: number;
+  sampleRate: number;
+  bitsPerSample: number;
+}
+
+// Walks RIFF chunks to read the `fmt ` fields the device firmware itself
+// requires (mono, 16-bit PCM) — mirrors wav_parse() in aud_player.c so both
+// sides agree on what's actually playable.
+function parseWavFormat(buf: Buffer): WavFormat | null {
+  if (
+    buf.length < 12 ||
+    buf.toString('ascii', 0, 4) !== 'RIFF' ||
+    buf.toString('ascii', 8, 12) !== 'WAVE'
+  ) {
+    return null;
+  }
+
+  let offset = 12;
+  while (offset + 8 <= buf.length) {
+    const chunkId = buf.toString('ascii', offset, offset + 4);
+    const chunkSize = buf.readUInt32LE(offset + 4);
+    const dataStart = offset + 8;
+
+    if (chunkId === 'fmt ') {
+      if (dataStart + 16 > buf.length) return null;
+      return {
+        numChannels: buf.readUInt16LE(dataStart + 2),
+        sampleRate: buf.readUInt32LE(dataStart + 4),
+        bitsPerSample: buf.readUInt16LE(dataStart + 14),
+      };
+    }
+    offset = dataStart + chunkSize + (chunkSize % 2);
+  }
+  return null;
+}
 
 @Injectable()
 export class AudioService {
@@ -90,6 +127,19 @@ export class AudioService {
       );
     }
 
+    const wav = parseWavFormat(file.buffer);
+    if (!wav) {
+      throw new BadRequestException(
+        'Could not read WAV header — file may be corrupt or not a valid WAV',
+      );
+    }
+    if (wav.numChannels !== 1 || wav.bitsPerSample !== 16) {
+      throw new BadRequestException(
+        `Device only plays mono, 16-bit PCM WAV — got ${wav.numChannels}ch/${wav.bitsPerSample}bit. ` +
+          `Convert with: ffmpeg -i in.wav -ac 1 -ar ${wav.sampleRate || 22050} -sample_fmt s16 -acodec pcm_s16le out.wav`,
+      );
+    }
+
     const key = `audio/${tenantId}/${randomUUID()}.wav`;
     const stored = await this.storage.putObject(
       key,
@@ -149,7 +199,7 @@ export class AudioService {
       skipDuplicates: true,
     });
 
-    const published = await this.commands.publishAudioCommands(
+    const published = await this.commands.publishCommands(
       commands.map((c) => c.id),
       { simulateAck: true },
     );
