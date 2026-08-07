@@ -71,7 +71,7 @@ PCB run, controlling cost and risk.
 ## 3. Feasibility
 
 **Technical:** All components are proven, off-the-shelf parts (ESP32-S3, mmWave
-module, micro servo, I²S audio amp, Li-ion power). The main integration risk —
+module, planetary gear motor + driver, I²S audio amp, Li-ion power). The main integration risk —
 running audio + Wi-Fi + motor + sensor concurrently on one MCU — is exactly what
 the matrix-board phase de-risks.
 
@@ -89,10 +89,10 @@ with the remaining 95 decided after validation.
 
 | Component | Decision | Why |
 |---|---|---|
-| **Processor** | ESP32-S3 (N16R8: 16 MB flash, 8 MB PSRAM) | Wi-Fi + audio decode + servo + sensor all at once. More RAM/PSRAM than classic ESP32; 16 MB onboard flash may remove the need for a separate audio-storage chip. |
-| **Presence sensor** | mmWave (e.g. HLK-LD2410) | Detects a **stationary** shopper → measures dwell time. Immune to light/heat/dust. Gives distance + motion data, not just yes/no. |
+| **Processor** | ESP32-S3 (N16R8: 16 MB flash, 8 MB PSRAM) | Wi-Fi + audio decode + motor + sensor all at once. More RAM/PSRAM than classic ESP32; 16 MB onboard flash may remove the need for a separate audio-storage chip. |
+| **Presence sensor** | mmWave (HLK-LD116s, 24 GHz — sourcing) | Detects a **stationary** shopper → measures dwell time. Immune to light/heat/dust. Gives distance + motion data, not just yes/no. |
 | **Audio** | MAX98357A I²S DAC+amp + speaker | Clean digital audio straight from the ESP32 with minimal parts. |
-| **Motion** | Metal-gear micro servo (MG90S / MG996R) | Single PWM pin, no motor-driver circuit, enough torque to move a bottle/can. |
+| **Motion** | Planetary gear DC motor + H-bridge motor driver + limit switch(es) | More torque/precision than a hobby servo; limit switches give a hard, repeatable home/end-stop instead of relying on PWM position. |
 | **Light** | WS2812B addressable LEDs | Individually controllable colour/animation for an attention effect; can later sync with dwell + audio. |
 | **Connectivity** | Wi-Fi only (no SIM) | First site has Wi-Fi; SIM cost per unit is too high at 100 units. |
 | **Audio storage** | Onboard 16 MB flash (external SPI flash optional) | Enough for one clip + several more; add external chip only if the library grows. |
@@ -115,11 +115,11 @@ AC adapter → CC/CV charger → BMS → 2S 18650 pack → buck regulator → 5V
  (wall)                     (protect+balance)      (step-down)       rails
 ```
 
-- **Battery:** 2S Li-ion (2× or 4× 18650), 7.4 V nominal — headroom for servo current spikes + runtime.
+- **Battery:** 2S Li-ion (2× or 4× 18650), 7.4 V nominal — headroom for motor current spikes + runtime.
 - **BMS:** 2S protection (over-charge / over-discharge / short / balance).
 - **Charger:** CC/CV 2S (8.4 V) module fed from the AC adapter.
 - **Regulation:** buck to a clean 5 V rail; ESP32-S3 board LDO handles 3.3 V.
-- **Watch-out:** servo current spikes — a **bulk capacitor** (≈1000 µF) on the 5 V rail keeps audio/Wi-Fi from browning out.
+- **Watch-out:** motor current spikes (esp. stall against a limit switch) — a **bulk capacitor** (≈1000 µF) on the 5 V rail keeps audio/Wi-Fi from browning out.
 
 ---
 
@@ -148,12 +148,12 @@ and other brands later, each seeing only their own fleet.
 ```
 [ESP32-S3 device] --MQTT--> [Backend / NestJS] <--HTTPS--> [SaaS dashboard]
   mmWave                      device registry                fleet list/map
-  servo                       telemetry store                health status
+  gear motor + driver         telemetry store                health status
   audio (flash)               audio push API                 remote audio upload
   WS2812 LEDs                 tenant isolation                role-based access
 ```
 
-1. **Device firmware (ESP32-S3)** — presence + dwell logic, servo motion, audio
+1. **Device firmware (ESP32-S3)** — presence + dwell logic, gear-motor motion, audio
    playback, LED effects, and cloud comms over **MQTT** (lightweight device↔cloud
    protocol; online/offline status essentially for free).
 2. **Backend (NestJS)** — multi-tenant device registry + telemetry (interaction
@@ -192,8 +192,10 @@ or Daraz; **Import** = AliExpress / India (carry spares, longer lead time).
 | mmWave sensor | HLK-LD2410 (24 GHz, UART) | 1 | Presence + dwell time | Import |
 | Audio amp | MAX98357A (I²S DAC+amp) | 1 | Decode + amplify audio | Import |
 | Speaker | 4 Ω / 8 Ω, 3 W | 1 | Sound output | Local |
-| Servo | MG90S (metal gear) / MG996R | 1 | Move / grip product | Local |
-| Bulk capacitor | 1000 µF electrolytic | 1 | Absorb servo current spikes | Local |
+| Gear motor | Planetary gear DC motor (TBD) | 1 | Move / grip product | Local/Import |
+| Motor driver | H-bridge — e.g. TB6612FNG / L298N / DRV8833 (confirm) | 1 | Drive the gear motor | Local/Import |
+| Limit switch | Micro limit switch, SPDT | 1–2 | Home / end-stop | Local |
+| Bulk capacitor | 1000 µF electrolytic | 1 | Absorb motor current spikes | Local |
 | Battery | 18650 Li-ion, 2S (opt. 2S2P) | 2–4 | Main power | Local |
 | BMS | 2S protection board | 1 | Battery safety + balance | Local |
 | Charger | CC/CV 2S (8.4 V) module | 1 | Charge from AC | Local/Import |
@@ -222,7 +224,7 @@ cost variables: **mmWave** and **battery pack**.
 ## 10. Prototype-first approach
 
 - Build the first **4–5 units on matrix board**, not PCB.
-- Prove mmWave + audio + servo integration works reliably in real shelf conditions.
+- Prove mmWave + audio + gear motor integration works reliably in real shelf conditions.
 - Only after validation commit to PCBs: **first 5 sourced locally**, remaining
   **95 later** (local or overseas — TBD).
 - **Why:** re-spinning a PCB after ordering 100 would be a costly setback. This
@@ -251,7 +253,7 @@ dashboard, and a documented go/no-go on PCB design.
 | **Sun 26 — Kickoff** | Review shelf-robot designs; sketch enclosure | Confirm all components ordered / in hand | Define data model; backend skeleton |
 | **Mon 27 — Bring-up** | Draft first enclosure | ESP32-S3 on Wi-Fi; read mmWave raw data | Device check-in → reports online |
 | **Tue 28 — Audio+sensor** | Iterate enclosure to fit parts | Play audio off flash; tune dwell detection | Upload endpoint → push clip to one device |
-| **Wed 29 — Motion+logic** | Finalize arm/sensor mount | Wire servo; full loop on one unit | First dashboard view (devices + last interaction) |
+| **Wed 29 — Motion+logic** | Finalize arm/sensor mount | Wire motor driver + limit switches; full loop on one unit | First dashboard view (devices + last interaction) |
 | **Thu 30 — Multi-unit** | Assemble 2 more units | Replicate across 4–5 units; stress-test Wi-Fi | Multi-device dashboard; verify targeted audio push |
 | **Fri 31 — Review** | Demo | Demo full loop | Demo dashboard · document cost/reliability · **go/no-go** |
 
@@ -291,13 +293,13 @@ dashboard, and a documented go/no-go on PCB design.
 - **Speaker note:** Explain why a hardware project needs software and how Baliyo profits.
 
 ### Slide 5 — Electronics Architecture at a Glance
-- **On slide:** ESP32-S3 hub (Wi-Fi + audio + sensor + motor) · mmWave over UART · micro servo grips/moves · I²S amp + speaker · addressable LEDs · battery + BMS + AC charging · device→cloud over MQTT
+- **On slide:** ESP32-S3 hub (Wi-Fi + audio + sensor + motor) · mmWave over UART · planetary gear motor (driver + limit switches) grips/moves · I²S amp + speaker · addressable LEDs · battery + BMS + AC charging · device→cloud over MQTT
 - **Image:** clean block-diagram of connected modules
 - **Speaker note:** One picture of the whole single-robot system.
 
 ### Slide 6 — Component Choices — and Why
-- **On slide:** ESP32-S3 N16R8 (RAM + 8 MB PSRAM + 16 MB flash; onboard flash may drop the extra chip) · mmWave over PIR/ultrasonic (stationary detection + dwell, immune to light/heat/dust) · MAX98357A I²S audio · metal-gear micro servo (single PWM pin, no driver)
-- **Image:** microcontroller board + radar/mmWave module + servo motor
+- **On slide:** ESP32-S3 N16R8 (RAM + 8 MB PSRAM + 16 MB flash; onboard flash may drop the extra chip) · mmWave over PIR/ultrasonic (stationary detection + dwell, immune to light/heat/dust) · MAX98357A I²S audio · planetary gear motor via H-bridge driver + limit switches (more torque/precision than a hobby servo)
+- **Image:** microcontroller board + radar/mmWave module + gear motor + driver
 - **Speaker note:** Build team confidence in each decision.
 
 ### Slide 7 — Addressable LEDs: Small Part, Big Effect
@@ -306,20 +308,20 @@ dashboard, and a documented go/no-go on PCB design.
 - **Speaker note:** Answer why we're adding LEDs and what they buy us.
 
 ### Slide 8 — Power System: Battery, BMS & AC Charging
-- **On slide:** Battery-powered — not tied to a shelf outlet · AC → charger → BMS → 2S 18650 → buck → 5V/3.3V · BMS protects + balances · Runs through a power cut (like a small UPS) · Bulk capacitor stops servo brown-outs
+- **On slide:** Battery-powered — not tied to a shelf outlet · AC → charger → BMS → 2S 18650 → buck → 5V/3.3V · BMS protects + balances · Runs through a power cut (like a small UPS) · Bulk capacitor stops motor brown-outs
 - **Image:** 18650 batteries with a BMS board
 - **Speaker note:** Show the power reasoning is deliberate and safe.
 
 ### Slide 9 — Prototype First: Matrix Board Before PCB
-- **On slide:** First 4–5 units on matrix board · Prove mmWave + audio + servo in real conditions · Then PCBs — first 5 local, 95 later · Re-spinning after 100 = costly setback · Protects budget & timeline
+- **On slide:** First 4–5 units on matrix board · Prove mmWave + audio + gear motor in real conditions · Then PCBs — first 5 local, 95 later · Re-spinning after 100 = costly setback · Protects budget & timeline
 - **Image:** breadboard/perfboard prototype next to a finished PCB
 - **Speaker note:** Signals disciplined engineering to the team and client.
 
 ### Slide 10 — Optional vs Non-Optional Parts
 - **On slide (two columns):**
-  - *Non-optional:* ESP32-S3 N16R8, mmWave, MAX98357A + speaker, micro servo, battery + BMS, charger, buck
+  - *Non-optional:* ESP32-S3 N16R8, mmWave, MAX98357A + speaker, gear motor + driver + limit switches, battery + BMS, charger, buck
   - *Optional:* external SPI flash (if onboard 16 MB isn't enough), WS2812B LEDs
-  - *Import first:* ESP32-S3, mmWave, audio amp · *Local:* servo, speaker, 18650, BMS, charger, buck, perfboard, passives
+  - *Import first:* ESP32-S3, mmWave, audio amp · *Local:* gear motor, motor driver, limit switches, speaker, 18650, BMS, charger, buck, perfboard, passives
 - **Image:** two-column checklist visual
 - **Speaker note:** Give the buy team a clear priority.
 
