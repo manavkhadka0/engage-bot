@@ -14,5 +14,13 @@ dependencies:
   #   # `public` flag doesn't have an effect dependencies of the `main` component.
   #   # All dependencies of `main` are public by default.
   #   public: true
-  # Feature 1 (this branch) needs neither — no filesystem, no MQTT, just the
-  # aud_player component reading straight from the raw "audio" partition.
+  # main.c on this branch (Feature 1) doesn't call filesystem/mqtt_ctl at
+  # all, but ESP-IDF's build still resolves every discovered component's
+  # CMakeLists.txt at configure time (not just main's REQUIRES closure) —
+  # components/filesystem and components/mqtt_ctl hard-require these by
+  # name, so they still need to be fetched even though nothing links them
+  # into this branch's actual binary. Learned this the hard way: leaving
+  # them out fails idf.py set-target with "Failed to resolve component
+  # 'joltwallet__littlefs' required by component 'filesystem'".
+  joltwallet/littlefs: ^1.20.2
+  espressif/mqtt: '*'
