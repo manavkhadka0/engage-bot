@@ -146,6 +146,8 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
 }
 
 esp_err_t mqtt_ctl_start(const char *broker_uri,
+                         const char *username,
+                         const char *password,
                          const char *tenant_id,
                          const char *device_id,
                          mqtt_ctl_audio_update_cb_t on_audio_update)
@@ -158,6 +160,8 @@ esp_err_t mqtt_ctl_start(const char *broker_uri,
 
     esp_mqtt_client_config_t cfg = {
         .broker.address.uri = broker_uri,
+        .credentials.username = username,
+        .credentials.authentication.password = password,
     };
 
     s_client = esp_mqtt_client_init(&cfg);
