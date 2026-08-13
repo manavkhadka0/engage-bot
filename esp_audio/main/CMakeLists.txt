@@ -4,8 +4,5 @@ idf_component_register(
     REQUIRES
         driver
         esp_partition
-        wifi_manager
-        downloader
         aud_player
-        mqtt_ctl
 )
