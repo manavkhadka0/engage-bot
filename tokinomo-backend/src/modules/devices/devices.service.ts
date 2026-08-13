@@ -31,7 +31,11 @@ export class DevicesService {
     private readonly commands: CommandPublisher,
   ) {}
 
-  list(auth: AuthContext, status?: DeviceStatus) {
+  async list(
+    auth: AuthContext,
+    status?: DeviceStatus,
+    opts: { limit?: number; offset?: number } = {},
+  ) {
     const where: Prisma.DeviceWhereInput = {};
     if (!auth.isPlatform) {
       if (!auth.tenantId) throw new ForbiddenException('No active tenant');
@@ -40,11 +44,30 @@ export class DevicesService {
       where.tenantId = auth.tenantId;
     }
     if (status) where.status = status;
-    return this.prisma.device.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      include: { location: true, product: true, tenant: true },
-    });
+
+    const max = 500;
+    const defaultLimit = auth.isPlatform && !auth.tenantId ? 100 : 200;
+    const limit = Math.min(Math.max(opts.limit ?? defaultLimit, 1), max);
+    const offset = Math.max(opts.offset ?? 0, 0);
+
+    const [items, total] = await Promise.all([
+      this.prisma.device.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+        include: { location: true, product: true, tenant: true },
+      }),
+      this.prisma.device.count({ where }),
+    ]);
+
+    return {
+      items,
+      total,
+      limit,
+      offset,
+      hasMore: offset + items.length < total,
+    };
   }
 
   async get(auth: AuthContext, id: string) {
@@ -83,6 +106,25 @@ export class DevicesService {
         productId: data.productId,
         status: DeviceStatus.OFFLINE,
       },
+    });
+  }
+
+  async setLocation(auth: AuthContext, id: string, locationId: string | null) {
+    const device = await this.prisma.device.findUnique({ where: { id } });
+    if (!device) throw new NotFoundException('Device not found');
+    this.assertAccess(auth, device.tenantId);
+
+    if (locationId) {
+      const location = await this.prisma.location.findFirst({
+        where: { id: locationId, tenantId: device.tenantId! },
+      });
+      if (!location) throw new ForbiddenException('Location not in tenant');
+    }
+
+    return this.prisma.device.update({
+      where: { id },
+      data: { locationId },
+      include: { location: true },
     });
   }
 

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { DeviceStatus } from '@prisma/client';
 import { Roles, Session, type UserSession } from '@thallesp/nestjs-better-auth';
@@ -19,6 +19,10 @@ class AssignDto extends createZodDto(
     locationId: z.string().optional(),
     productId: z.string().optional(),
   }),
+) {}
+
+class SetLocationDto extends createZodDto(
+  z.object({ locationId: z.string().nullable() }),
 ) {}
 
 class SendCommandDto extends createZodDto(
@@ -70,8 +74,15 @@ export class DevicesController {
     @Session() session: UserSession,
     @Headers(TENANT_ID_HEADER) tenantHeader?: string,
     @Query('status') status?: DeviceStatus,
+    @Query('limit') limitRaw?: string,
+    @Query('offset') offsetRaw?: string,
   ) {
-    return this.devices.list(sessionToAuth(session, tenantHeader), status);
+    const limit = limitRaw ? Number.parseInt(limitRaw, 10) : undefined;
+    const offset = offsetRaw ? Number.parseInt(offsetRaw, 10) : undefined;
+    return this.devices.list(sessionToAuth(session, tenantHeader), status, {
+      limit: Number.isFinite(limit) ? limit : undefined,
+      offset: Number.isFinite(offset) ? offset : undefined,
+    });
   }
 
   @Get(':id')
@@ -103,6 +114,24 @@ export class DevicesController {
     @Body() dto: AssignDto,
   ) {
     return this.devices.assign(sessionToAuth(session, tenantHeader), id, dto);
+  }
+
+  @Patch(':id/location')
+  @ApiOperation({
+    summary:
+      'Set (or clear) a device\'s location within its own tenant — for the fleet map',
+  })
+  setLocation(
+    @Session() session: UserSession,
+    @Headers(TENANT_ID_HEADER) tenantHeader: string | undefined,
+    @Param('id') id: string,
+    @Body() dto: SetLocationDto,
+  ) {
+    return this.devices.setLocation(
+      sessionToAuth(session, tenantHeader),
+      id,
+      dto.locationId,
+    );
   }
 
   @Post(':id/command')

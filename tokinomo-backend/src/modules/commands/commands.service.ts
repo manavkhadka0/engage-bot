@@ -6,10 +6,14 @@ import {
 import { CommandStatus, CommandType, Prisma } from '@prisma/client';
 import type { AuthContext } from '../../common/guards/roles.guard';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { CommandPublisher } from '../../workers/jobs/command-publisher';
 
 @Injectable()
 export class CommandsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly commandPublisher: CommandPublisher,
+  ) {}
 
   list(auth: AuthContext, deviceId?: string) {
     const where: Prisma.CommandWhereInput = {};
@@ -39,7 +43,7 @@ export class CommandsService {
     if (!auth.isPlatform && device.tenantId !== auth.tenantId) {
       throw new ForbiddenException('Cross-tenant access denied');
     }
-    return this.prisma.command.create({
+    const command = await this.prisma.command.create({
       data: {
         deviceId: data.deviceId,
         type: data.type,
@@ -47,5 +51,12 @@ export class CommandsService {
         status: CommandStatus.QUEUED,
       },
     });
+
+    const published = await this.commandPublisher.publishCommands(
+      [command.id],
+      { simulateAck: true },
+    );
+
+    return { command, published };
   }
 }
