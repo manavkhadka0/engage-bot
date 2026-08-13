@@ -8,19 +8,65 @@ import type {
   BillingOverview,
   CreateTenantPayload,
   Device,
+  DeviceListPage,
   DwellSummary,
+  Location,
+  OpsOverview,
   OrgMember,
+  PlaysSeriesPoint,
   Product,
+  SubscriptionStatus,
   Tenant,
+  TenantDetail,
   TenantTier,
   TierCatalogItem,
+  UpdateTenantPayload,
 } from "@/lib/api/types";
 
-export function useTenants(enabled = true) {
+export function useTenants(enabled = true, includeArchived = false) {
   return useQuery({
-    queryKey: ["tenants"],
-    queryFn: () => apiFetch<Tenant[]>("/tenants"),
+    queryKey: ["tenants", includeArchived ? "all" : "active"],
+    queryFn: () =>
+      apiFetch<Tenant[]>(
+        `/tenants${includeArchived ? "?includeArchived=1" : ""}`,
+      ),
     enabled,
+  });
+}
+
+export interface CreateLeadPayload {
+  name: string;
+  email: string;
+  brand: string;
+  stores?: string;
+  intent: "demo" | "pilot" | "platform" | "other";
+  message: string;
+}
+
+export function useCreateLead() {
+  return useMutation({
+    mutationFn: (payload: CreateLeadPayload) =>
+      apiFetch<{ ok: true }>("/leads", {
+        method: "POST",
+        json: payload,
+      }),
+  });
+}
+
+export function useOpsOverview(enabled = true) {
+  return useQuery({
+    queryKey: ["tenants", "ops-overview"],
+    queryFn: () => apiFetch<OpsOverview>("/tenants/ops-overview"),
+    enabled,
+    staleTime: 15_000,
+  });
+}
+
+export function useTenant(id?: string | null) {
+  return useQuery({
+    queryKey: ["tenants", id],
+    queryFn: () => apiFetch<TenantDetail>(`/tenants/${id}`),
+    enabled: !!id,
   });
 }
 
@@ -34,18 +80,130 @@ export function useCreateTenant() {
       }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["tenants"] });
+      void qc.invalidateQueries({ queryKey: ["devices"] });
       void qc.invalidateQueries({ queryKey: ["billing"] });
     },
   });
 }
 
-export function useDevices(tenantId?: string | null) {
-  return useQuery({
-    queryKey: ["devices", tenantId ?? "all"],
-    queryFn: () =>
-      apiFetch<Device[]>("/devices", {
-        tenantId: tenantId ?? undefined,
+export function useUpdateTenant(id?: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: UpdateTenantPayload) =>
+      apiFetch<Tenant>(`/tenants/${id}`, {
+        method: "PATCH",
+        json: payload,
       }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["tenants"] });
+      void qc.invalidateQueries({ queryKey: ["billing"] });
+    },
+  });
+}
+
+export function useRenameTenantSlug(id?: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: {
+      slug: string;
+      confirm: true;
+      auditNote: string;
+    }) =>
+      apiFetch<Tenant>(`/tenants/${id}/slug`, {
+        method: "PATCH",
+        json: payload,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["tenants"] });
+    },
+  });
+}
+
+export function useArchiveTenant(id?: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { auditNote: string; unarchive?: boolean }) =>
+      apiFetch<Tenant>(
+        `/tenants/${id}/${args.unarchive ? "unarchive" : "archive"}`,
+        {
+          method: "POST",
+          json: { auditNote: args.auditNote },
+        },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["tenants"] });
+    },
+  });
+}
+
+export function useWipeTelemetry(id?: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { auditNote: string; confirm: true }) =>
+      apiFetch<{ ok: boolean; deleted: number }>(
+        `/tenants/${id}/wipe-telemetry`,
+        { method: "POST", json: payload },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["tenants", id] });
+      void qc.invalidateQueries({ queryKey: ["analytics"] });
+    },
+  });
+}
+
+export function useSimulateFleet(id?: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (action: "loop" | "online" | "offline" = "loop") =>
+      apiFetch(`/tenants/${id}/simulate-fleet`, {
+        method: "POST",
+        json: { action },
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["tenants", id] });
+      void qc.invalidateQueries({ queryKey: ["devices"] });
+      void qc.invalidateQueries({ queryKey: ["analytics"] });
+    },
+  });
+}
+
+export function useTransferAdmin(id?: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: {
+      email: string;
+      name?: string;
+      auditNote: string;
+    }) =>
+      apiFetch(`/tenants/${id}/transfer-admin`, {
+        method: "POST",
+        json: payload,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["tenants", id] });
+      void qc.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+}
+
+export function useDevices(
+  tenantId?: string | null,
+  opts?: { limit?: number; offset?: number; enabled?: boolean },
+) {
+  const limit = opts?.limit;
+  const offset = opts?.offset ?? 0;
+  return useQuery({
+    queryKey: ["devices", tenantId ?? "all", limit ?? "default", offset],
+    queryFn: () => {
+      const q = new URLSearchParams();
+      if (limit != null) q.set("limit", String(limit));
+      if (offset) q.set("offset", String(offset));
+      const qs = q.toString();
+      return apiFetch<DeviceListPage>(`/devices${qs ? `?${qs}` : ""}`, {
+        tenantId: tenantId ?? undefined,
+      });
+    },
+    enabled: opts?.enabled ?? true,
   });
 }
 
@@ -57,7 +215,10 @@ export function useProvisionDevice() {
         method: "POST",
         json: { serial },
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["devices"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["devices"] });
+      void qc.invalidateQueries({ queryKey: ["tenants", "ops-overview"] });
+    },
   });
 }
 
@@ -78,7 +239,11 @@ export function useAssignDevice() {
           productId: args.productId,
         },
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["devices"] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["devices"] });
+      void qc.invalidateQueries({ queryKey: ["tenants"] });
+      void qc.invalidateQueries({ queryKey: ["tenants", "ops-overview"] });
+    },
   });
 }
 
@@ -107,6 +272,8 @@ export function useSimulateDevice() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["devices"] });
       void qc.invalidateQueries({ queryKey: ["analytics"] });
+      void qc.invalidateQueries({ queryKey: ["tenants"] });
+      void qc.invalidateQueries({ queryKey: ["tenants", "ops-overview"] });
     },
   });
 }
@@ -117,6 +284,16 @@ export function useAnalyticsOverview(tenantId?: string | null) {
     queryFn: () =>
       apiFetch<AnalyticsOverview>("/analytics/overview", { tenantId }),
     enabled: !!tenantId,
+  });
+}
+
+export function usePlaysSeries(tenantId?: string | null) {
+  return useQuery({
+    queryKey: ["analytics", "plays-series", tenantId],
+    queryFn: () =>
+      apiFetch<PlaysSeriesPoint[]>("/analytics/plays-series", { tenantId }),
+    enabled: !!tenantId,
+    staleTime: 30_000,
   });
 }
 
@@ -133,6 +310,72 @@ export function useProducts(tenantId?: string | null) {
     queryKey: ["products", tenantId],
     queryFn: () => apiFetch<Product[]>("/products", { tenantId }),
     enabled: !!tenantId,
+  });
+}
+
+export function useLocations(tenantId?: string | null) {
+  return useQuery({
+    queryKey: ["locations", tenantId],
+    queryFn: () => apiFetch<Location[]>("/locations", { tenantId }),
+    enabled: !!tenantId,
+  });
+}
+
+export interface LocationPayload {
+  name: string;
+  address?: string;
+  lat?: number;
+  lng?: number;
+}
+
+export function useCreateLocation(tenantId?: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: LocationPayload) =>
+      apiFetch<Location>("/locations", {
+        method: "POST",
+        tenantId,
+        json: payload,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["locations", tenantId] });
+    },
+  });
+}
+
+export function useUpdateLocation(tenantId?: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: LocationPayload & { id: string }) =>
+      apiFetch<Location>(`/locations/${id}`, {
+        method: "PATCH",
+        tenantId,
+        json: payload,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["locations", tenantId] });
+    },
+  });
+}
+
+export function useSetDeviceLocation(tenantId?: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      deviceId,
+      locationId,
+    }: {
+      deviceId: string;
+      locationId: string | null;
+    }) =>
+      apiFetch<Device>(`/devices/${deviceId}/location`, {
+        method: "PATCH",
+        tenantId,
+        json: { locationId },
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["devices"] });
+    },
   });
 }
 
@@ -197,7 +440,10 @@ export function useInviteUser(tenantId?: string | null) {
         json: payload,
         tenantId,
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["users", tenantId] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["users", tenantId] });
+      void qc.invalidateQueries({ queryKey: ["tenants"] });
+    },
   });
 }
 
@@ -247,6 +493,21 @@ export function useChangeTier() {
       apiFetch(`/billing/tenants/${args.tenantId}/tier`, {
         method: "PATCH",
         json: { tier: args.tier, activateNow: args.activateNow },
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["billing"] });
+      void qc.invalidateQueries({ queryKey: ["tenants"] });
+    },
+  });
+}
+
+export function useSetSubscriptionStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { tenantId: string; status: SubscriptionStatus }) =>
+      apiFetch(`/billing/tenants/${args.tenantId}/status`, {
+        method: "PATCH",
+        json: { status: args.status },
       }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["billing"] });
