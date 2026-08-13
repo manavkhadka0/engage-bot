@@ -1,8 +1,17 @@
 # ESP32 WAV Downloader & Player
 
+> **This branch (`feature/esp-audio-01-play-audio`) is Feature 1: an isolated hardware
+> sanity check.** `app_main` does nothing but stream whatever WAV is already sitting in
+> the `audio` flash partition straight to the MAX98357A over I2S — no WiFi, no MQTT, no
+> download. The point is to prove the wiring and I2S playback path work with zero
+> networking variables in the mix, before layering those back in on
+> `feature/esp-audio-02-webapp-integration` (which is the fuller pipeline described
+> below, merged back into `main` once both are verified independently).
+
 A small **ESP-IDF** firmware for the **ESP32** that, on boot, connects to WiFi, downloads a
 `.wav` file over HTTPS, stores it in on-board flash, and plays it out over **I2S** to a
-**MAX98357A** class-D amp.
+**MAX98357A** class-D amp. *(That's the target end state on `main` — see the branch note
+above for what's actually running on this checkout.)*
 
 ```
  ┌──────────┐   ┌──────────┐   ┌────────────┐   ┌───────────────┐
@@ -10,6 +19,25 @@ A small **ESP-IDF** firmware for the **ESP32** that, on boot, connects to WiFi, 
  │  connect │   │ download │   │ partition  │   │  (MAX98357A)  │
  └──────────┘   └──────────┘   └────────────┘   └───────────────┘
 ```
+
+## Feature 1: flashing a test clip (no WiFi needed)
+
+Since nothing downloads a file on this branch, put one on the `audio` partition
+yourself first, with ESP-IDF's partition tool:
+
+```bash
+. $HOME/esp/esp-idf/export.sh
+idf.py set-target esp32
+idf.py build                      # also generates the partition table
+python $IDF_PATH/components/partition_table/parttool.py \
+  --port /dev/tty.usbserial-0001 \
+  write_partition --partition-name audio --input hello.wav
+idf.py -p /dev/tty.usbserial-0001 flash monitor
+```
+
+`hello.wav` (already in this repo) is 16-bit mono — the only format `aud_player`
+accepts. Swap in any other 16-bit mono WAV the same way; `techno.wav` and
+`test_tone.wav` are also in the repo if you want a longer/simpler clip to check with.
 
 ---
 
