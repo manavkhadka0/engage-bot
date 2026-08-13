@@ -4,3 +4,13 @@ CONFIG_TOUCH_SUPPRESS_DEPRECATE_WARN=y
 # once signed; the 1024-byte default (topic+payload shared) can truncate them.
 CONFIG_MQTT_USE_CUSTOM_CONFIG=y
 CONFIG_MQTT_BUFFER_SIZE=2048
+
+# Board is a FireBeetle 2 ESP32-UE (N16R2): 16MB flash. Without these, the
+# build silently falls back to ESP-IDF's bare-bones 2MB-flash single-app
+# default layout (partitions_singleapp.csv) instead of this project's own
+# partitions.csv — found while actually building Feature 2, where the app
+# partition came out 97% full. partitions.csv itself was already correct
+# and already checked in; it just was never selected.
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
