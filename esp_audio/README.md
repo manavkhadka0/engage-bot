@@ -1,5 +1,13 @@
 # ESP32 WAV Downloader & Player
 
+> **This branch (`feature/esp-audio-02-webapp-integration`) is Feature 2: the full
+> backend-integrated pipeline** — dashboard upload → `audio_update` over MQTT →
+> download → auto-play → ack. It's what's described below, fixed to actually
+> authenticate to EMQX (see "Known limitations" — anonymous MQTT used to work, EMQX now
+> requires per-device auth) and pointed at **Test Tenant 1** for this test run. Feature 1
+> (`feature/esp-audio-01-play-audio`) is the isolated, network-free playback sanity
+> check; the two merge back into `main` once both are verified independently.
+
 A small **ESP-IDF** firmware for the **ESP32** that, on boot, connects to WiFi, downloads a
 `.wav` file over HTTPS, stores it in on-board flash, and plays it out over **I2S** to a
 **MAX98357A** class-D amp.
