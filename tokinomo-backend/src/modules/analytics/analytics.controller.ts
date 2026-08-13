@@ -33,6 +33,15 @@ export class AnalyticsController {
     );
   }
 
+  @Get('plays-series')
+  @ApiOperation({ summary: 'Hourly plays/detections for today' })
+  playsSeries(
+    @Session() session: UserSession,
+    @Headers(TENANT_ID_HEADER) tenantHeader?: string,
+  ) {
+    return this.analytics.playsSeries(sessionToAuth(session, tenantHeader));
+  }
+
   @Get('dwell')
   @ApiOperation({ summary: 'Dwell distribution summary' })
   dwell(
