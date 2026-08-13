@@ -3,6 +3,18 @@ import { DeviceEventType, DeviceStatus } from '@prisma/client';
 import type { AuthContext } from '../../common/guards/roles.guard';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
+function formatHourLabel(hour: number): string {
+  const period = hour < 12 ? 'a' : 'p';
+  const twelveHour = hour % 12 === 0 ? 12 : hour % 12;
+  return `${twelveHour}${period}`;
+}
+
+interface PlaysSeriesRow {
+  hour: number;
+  detections: bigint;
+  plays: bigint;
+}
+
 @Injectable()
 export class AnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -60,6 +72,41 @@ export class AnalyticsService {
       take: 200,
     });
     return { deviceId, events };
+  }
+
+  /**
+   * Hourly plays/detections for today, computed live from device_event.
+   * No precomputed rollup — at current pilot scale a live GROUP BY over a
+   * single day (indexed on tenantId+ts) is fast enough; revisit with a
+   * Timescale continuous aggregate only if event volume actually demands it.
+   */
+  async playsSeries(auth: AuthContext) {
+    const tenantId = this.requireTenant(auth);
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const rows = await this.prisma.$queryRaw<PlaysSeriesRow[]>`
+      SELECT
+        EXTRACT(HOUR FROM ts)::int AS hour,
+        COUNT(*) FILTER (WHERE type IN ('DETECTION', 'DWELL')) AS detections,
+        COUNT(*) FILTER (WHERE type = 'PLAY') AS plays
+      FROM device_event
+      WHERE tenant_id = ${tenantId} AND ts >= ${startOfDay}
+      GROUP BY hour
+      ORDER BY hour
+    `;
+
+    const byHour = new Map(rows.map((r) => [r.hour, r]));
+    const currentHour = new Date().getHours();
+    return Array.from({ length: currentHour + 1 }, (_, hour) => {
+      const row = byHour.get(hour);
+      return {
+        hour,
+        label: formatHourLabel(hour),
+        plays: row ? Number(row.plays) : 0,
+        detections: row ? Number(row.detections) : 0,
+      };
+    });
   }
 
   async dwell(auth: AuthContext) {

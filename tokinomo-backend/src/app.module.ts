@@ -17,6 +17,7 @@ import { AudioModule } from './modules/audio/audio.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { CommandsModule } from './modules/commands/commands.module';
 import { DevicesModule } from './modules/devices/devices.module';
+import { LeadsModule } from './modules/leads/leads.module';
 import { LocationsModule } from './modules/locations/locations.module';
 import { MqttAuthModule } from './modules/mqtt-auth/mqtt-auth.module';
 import { ProductsModule } from './modules/products/products.module';
@@ -52,6 +53,7 @@ import { WorkersModule } from './workers/workers.module';
     ProductsModule,
     LocationsModule,
     MqttAuthModule,
+    LeadsModule,
     AudioModule,
     CommandsModule,
     AnalyticsModule,
