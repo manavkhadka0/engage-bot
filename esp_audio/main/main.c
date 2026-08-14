@@ -32,9 +32,18 @@
 
 /* ---- Backend / MQTT: this device's identity, from manual provisioning
  * (POST /devices/provision + /devices/:id/assign) against the local
- * tokinomo-backend. Same hardcoded-config pattern as WIFI_SSID above. ---- */
-#define MQTT_BROKER_URI "mqtt://192.168.1.91:1883"
-#define TENANT_ID       "cmse9nlub0000cj3e0zakkf46"
+ * tokinomo-backend. Same hardcoded-config pattern as WIFI_SSID above.
+ *
+ * MQTT_USERNAME/PASSWORD are this device's own serial + provisionToken —
+ * EMQX now runs per-device HTTP auth (Contract ④) and refuses anonymous
+ * connections, so these are required (see mqtt_ctl_start's doc comment).
+ * Re-assigned to Test Tenant 1 (esp_audio Feature 2 test) on 2026-08-13;
+ * broker IP is the dev machine's current LAN IP, found via `ipconfig
+ * getifaddr en0` — update if it changes (DHCP). ---- */
+#define MQTT_BROKER_URI "mqtt://192.168.1.96:1883"
+#define MQTT_USERNAME   "ESP32-3076F5561380"
+#define MQTT_PASSWORD   "***REMOVED***"
+#define TENANT_ID       "cmsrfgesy000gcj955nz07jmx"
 #define DEVICE_ID       "cmse9o9nc0005cj3e59f0ptgw"
 
 /* ---- Touch buttons --------------------------------------------------- */
@@ -371,8 +380,8 @@ void app_main(void)
     if (ensure_wifi_ready())
     {
         ESP_LOGI(TAG, "Wi-Fi connected, starting MQTT (%s)...", MQTT_BROKER_URI);
-        if (mqtt_ctl_start(MQTT_BROKER_URI, TENANT_ID, DEVICE_ID,
-                           on_mqtt_audio_update) != ESP_OK)
+        if (mqtt_ctl_start(MQTT_BROKER_URI, MQTT_USERNAME, MQTT_PASSWORD,
+                           TENANT_ID, DEVICE_ID, on_mqtt_audio_update) != ESP_OK)
         {
             ESP_LOGE(TAG, "MQTT start failed");
         }
