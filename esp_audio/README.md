@@ -1,16 +1,9 @@
 # ESP32 WAV Downloader & Player
 
-> **This branch (`feature/esp-audio-02-webapp-integration`) is Feature 2: the full
-> backend-integrated pipeline** — dashboard upload → `audio_update` over MQTT →
-> download → auto-play → ack. It's what's described below, fixed to actually
-> authenticate to EMQX (see "Known limitations" — anonymous MQTT used to work, EMQX now
-> requires per-device auth) and pointed at **Test Tenant 1** for this test run. Feature 1
-> (`feature/esp-audio-01-play-audio`) is the isolated, network-free playback sanity
-> check; the two merge back into `main` once both are verified independently.
-
 A small **ESP-IDF** firmware for the **ESP32** that, on boot, connects to WiFi, downloads a
-`.wav` file over HTTPS, stores it in on-board flash, and plays it out over **I2S** to a
-**MAX98357A** class-D amp.
+`.wav` file over HTTPS via MQTT-driven commands from the tokinomo backend, stores it in
+on-board flash, and plays it out over **I2S** to a **MAX98357A** class-D amp. Authenticates
+to EMQX per-device (Contract ④) rather than connecting anonymously.
 
 ```
  ┌──────────┐   ┌──────────┐   ┌────────────┐   ┌───────────────┐
@@ -18,6 +11,29 @@ A small **ESP-IDF** firmware for the **ESP32** that, on boot, connects to WiFi, 
  │  connect │   │ download │   │ partition  │   │  (MAX98357A)  │
  └──────────┘   └──────────┘   └────────────┘   └───────────────┘
 ```
+
+## Testing playback in isolation (no WiFi needed)
+
+Before bringing up the full pipeline, `app_main` can be swapped for a ~50-line variant
+that skips WiFi/MQTT entirely and just streams whatever WAV is already sitting in the
+`audio` flash partition — useful for proving the I2S wiring and amp work with zero
+networking variables in the mix. That variant lives in git history on
+[`feature/esp-audio-01-play-audio`](../../commits/feature/esp-audio-01-play-audio) (not
+on `main`, since it's a bring-up tool rather than the shipped firmware); the flow to put
+a clip on the partition manually is:
+
+```bash
+. $HOME/esp/esp-idf/export.sh
+idf.py set-target esp32
+idf.py build                      # also generates the partition table
+python $IDF_PATH/components/partition_table/parttool.py \
+  --port /dev/tty.usbserial-0001 \
+  write_partition --partition-name audio --input hello.wav
+idf.py -p /dev/tty.usbserial-0001 flash monitor
+```
+
+`hello.wav` (already in this repo) is 16-bit mono — the only format `aud_player`
+accepts. `techno.wav` and `test_tone.wav` are also in the repo for a longer/simpler clip.
 
 ---
 
