@@ -27,12 +27,20 @@ time is measured and logged for analytics but does **not** branch behaviour yet.
 
 ## 2. Hardware architecture
 
+> **Board + sensor update (2026-08-17):** the project has moved from the originally
+> planned ESP32-S3 N16R8 / HLK-LD2410 to the **DFRobot FireBeetle 2 ESP32-UE (N16R2)** —
+> a classic ESP32, not an S3 — and is evaluating **HLK-LD116S** (with RCWL-0516 as a
+> cheap Doppler fallback under comparison) instead of LD2410. The diagram and pin map
+> below reflect current reality; see
+> [`INTERN_FIRMWARE_TASKS.md`](INTERN_FIRMWARE_TASKS.md) for the Week-1 bring-up work
+> that's validating the sensor choice and the motor driver wiring.
+
 ```mermaid
 graph LR
-    PWR["Power<br/>2S 18650 + BMS + AC charger → buck 5V"] --> ESP["ESP32-S3<br/>N16R8"]
-    LD["LD2410 mmWave"] -->|UART| ESP
+    PWR["Power<br/>2S 18650 + BMS + AC charger → buck 5V"] --> ESP["ESP32<br/>FireBeetle 2 ESP32-UE N16R2"]
+    LD["HLK-LD116S mmWave<br/>(evaluating vs RCWL-0516)"] -->|UART/digital| ESP
     ESP -->|I2S| AMP["MAX98357A → speaker"]
-    ESP -->|IN1/IN2/PWM| DRV["Motor driver<br/>(H-bridge)"] -->|drive| MOT["Planetary gear motor"]
+    ESP -->|AIN1/AIN2/PWMA/STBY| DRV["HW-166 driver<br/>(TB6612FNG)"] -->|drive| MOT["Planetary gear motor"]
     LIM["Limit switch(es)"] -->|GPIO| ESP
     ESP -->|1-wire| LED["WS2812B LEDs"]
     ESP -->|Wi-Fi| NET(("Cloud"))
@@ -40,24 +48,41 @@ graph LR
     class PWR,ESP,LD,AMP,DRV,MOT,LIM,LED n;
 ```
 
-### 2.1 Pin map (illustrative — finalise with the schematic)
+### 2.1 Pin map — FireBeetle 2 ESP32-UE (N16R2)
 
-| Function | Signal | GPIO (TBD) | Notes |
+**Proven on real hardware** (audio pipeline flashed and tested end-to-end, see
+`esp_audio/README.md`) — don't reassign these:
+
+| Function | Signal | GPIO | Notes |
 |---|---|---|---|
-| LD2410 mmWave | UART RX ← sensor TX | GPIO18 | 256000 baud default |
-| LD2410 mmWave | UART TX → sensor RX | GPIO17 | |
-| MAX98357A | I²S BCLK | GPIO15 | |
-| MAX98357A | I²S LRCLK (WS) | GPIO16 | |
-| MAX98357A | I²S DIN | GPIO7 | |
-| Motor driver | IN1 (direction) | GPIO4 | H-bridge driver, e.g. TB6612FNG / L298N / DRV8833 (confirm) |
-| Motor driver | IN2 (direction) | GPIO6 | opposite direction leg |
-| Motor driver | PWM / ENA (speed) | GPIO8 | LEDC PWM; power motor from 5V rail, **not** 3V3 |
-| Limit switch | Input (pull-up) | GPIO9 | home/end-stop; debounce in firmware |
-| Limit switch (opt. 2nd) | Input (pull-up) | GPIO10 | only if the mechanism needs both-ends detection |
-| WS2812B | Data | GPIO5 | level-shift to 5V if needed |
-| Provision button | Input (pull-up) | GPIO0 | hold = enter Wi-Fi setup |
-| Status LED | Output | GPIO2 | onboard/aux |
-| Battery sense (opt.) | ADC | GPIO1 | divider from pack |
+| MAX98357A | I²S BCLK | GPIO26 | |
+| MAX98357A | I²S LRCLK (WS) | GPIO25 | |
+| MAX98357A | I²S DIN | GPIO17 | |
+| Touch: download | Input | GPIO4 | legacy touch driver |
+| Touch: play | Input | GPIO12 | boot-strapping pin (MTDI) — handled carefully in firmware |
+
+**Not broken out on this board's header at all** — don't design around them even
+though generic ESP32 tutorials use them: **GPIO27, GPIO16**.
+
+**Sensor + motor — tentative, being confirmed in Week-1 intern bring-up:**
+
+| Function | Signal | GPIO | Notes |
+|---|---|---|---|
+| HLK-LD116S / RCWL-0516 | RX (ESP ← sensor) | GPIO13 | UART2 RX if HLK-LD116S is UART; digital read if it's a level-output pin |
+| HLK-LD116S | TX (ESP → sensor), only if needed | GPIO14 | leave unconnected if the sensor doesn't take config commands |
+| HW-166 (TB6612FNG) | AIN1 (direction) | GPIO18 | |
+| HW-166 (TB6612FNG) | AIN2 (direction) | GPIO19 | |
+| HW-166 (TB6612FNG) | PWMA (speed) | GPIO23 | LEDC PWM |
+| HW-166 (TB6612FNG) | STBY (enable) | GPIO32 | outputs stay disabled until driven HIGH |
+| Limit switch (home) | Input (pull-up) | GPIO33 | debounce in firmware |
+| Limit switch (opt. 2nd) | Input, no internal pull | GPIO34 | input-only pin — needs an external pull resistor; only if both-ends detection is needed |
+
+**Never use** GPIO6–11 (wired to the board's own flash chip). **Avoid unless
+necessary:** GPIO0, 1, 2, 3, 5, 15 (boot-strapping / USB-serial pins).
+
+WS2812 LED, provision button, and battery-sense pins are not yet assigned on this
+board — add them here once that work is scheduled (currently out of scope for the
+Week-1 sensor/motor/audio bring-up).
 
 ### 2.2 Power subsystem (from ARCHITECTURE §5)
 `AC adapter → CC/CV 2S charger → BMS → 2S 18650 pack → buck → 5V` (ESP board LDO → 3.3V).
@@ -76,13 +101,25 @@ graph LR
 
 ## 3. Firmware architecture
 
-**Framework:** **PlatformIO + Arduino-ESP32** (sprint speed; ESP-IDF is the later
-hardening path). **FreeRTOS tasks** keep sensing, networking, and performance
-independent so a Wi-Fi stall never freezes the interaction.
+**Framework (production):** **ESP-IDF** — not PlatformIO/Arduino-ESP32 as this section
+originally planned. The production codebase (`esp_audio/`, WiFi+MQTT+audio pipeline)
+was built directly in ESP-IDF from the start and is already flashed and tested on real
+hardware; there was no separate Arduino phase for that part.
+
+**Framework (new-peripheral bring-up):** **Arduino IDE** (not PlatformIO) is being used
+for Week-1 exploratory work on subsystems not yet in the production firmware — sensor
+and motor — per [`INTERN_FIRMWARE_TASKS.md`](INTERN_FIRMWARE_TASKS.md). That code lives
+in `esp_arduino_prototypes/` as standalone sketches and is a **prototyping step, not
+the shipped firmware** — confirmed-working logic gets ported into `esp_audio/`'s
+ESP-IDF structure afterward, the same way the audio pipeline already works.
+
+**FreeRTOS tasks** (production) keep sensing, networking, and performance independent
+so a Wi-Fi stall never freezes the interaction — this task breakdown is the target for
+the ESP-IDF port, not necessarily how the Arduino prototypes are structured:
 
 ```mermaid
 graph TB
-    SENSE["SensorTask<br/>LD2410 → presence+dwell"] -->|queue| LOGIC["InteractionTask<br/>state machine"]
+    SENSE["SensorTask<br/>HLK-LD116S/RCWL-0516 → presence+dwell"] -->|queue| LOGIC["InteractionTask<br/>state machine"]
     LOGIC -->|play| AUD["AudioTask<br/>I2S from LittleFS"]
     LOGIC -->|motor+LED| ACT["Actuators"]
     LOGIC -->|events| TEL["TelemetryTask<br/>publish"]
@@ -102,38 +139,45 @@ graph TB
   position) before accepting triggers — treat "no limit switch trip within
   `homingTimeoutMs`" as a fault (stop the motor, report `error` telemetry).
 
-### 3.2 Project structure (PlatformIO)
+### 3.2 Project structure
+
+**Production (ESP-IDF, actual):**
 ```
-firmware/
-├─ platformio.ini
-├─ src/
-│  ├─ main.cpp            # task setup + wiring
-│  ├─ config.h            # pins, thresholds, topic templates
-│  ├─ net/  wifi_provision.cpp · mqtt_client.cpp · ota.cpp
-│  ├─ sensors/  ld2410.cpp
-│  ├─ actuators/  motor.cpp (driver + limit switches) · leds.cpp
-│  ├─ audio/  player.cpp
-│  ├─ logic/  interaction.cpp
-│  └─ telemetry/  reporter.cpp
-└─ data/                  # default clip for the LittleFS image
+esp_audio/
+├─ CMakeLists.txt
+├─ partitions.csv
+├─ main/  main.c · idf_component.yml
+└─ components/  filesystem/ · wifi_manager/ · downloader/ · aud_player/ · mqtt_ctl/
+```
+See `esp_audio/README.md` for the real, current layout — sensor/motor components
+aren't in there yet; that's what Week-1 bring-up + the subsequent port add.
+
+**Week-1 bring-up (Arduino IDE, prototyping only):**
+```
+esp_arduino_prototypes/
+├─ 01_motion_sensor/
+├─ 02_motor_driver/
+├─ 03_speaker_playback/
+└─ 04_integration/
 ```
 
-### 3.3 Packages / libraries (`platformio.ini → lib_deps`)
+### 3.3 Packages / libraries
+
+**For the Arduino IDE prototypes** (`esp_arduino_prototypes/`):
 
 | Purpose | Library |
 |---|---|
-| MQTT client | `knolleary/PubSubClient` (or `256dpi/arduino-mqtt` for larger buffers) over `WiFiClientSecure` |
-| JSON | `bblanchon/ArduinoJson` |
-| mmWave | `ncmreynolds/ld2410` |
-| Motor driver | none needed — direction on 2 GPIOs + `ledcWrite` PWM for speed/enable (driver-specific; confirm IC) |
+| mmWave (HLK-LD116S) | TBD — confirm its actual protocol during Week-1 Day 2 bring-up; no library chosen yet |
+| Doppler motion (RCWL-0516) | none needed — plain `digitalRead` |
+| Motor driver (HW-166 / TB6612FNG) | none needed — `digitalWrite` for AIN1/AIN2/STBY + `ledcWrite` PWM on PWMA |
 | Limit switch | none needed — plain `digitalRead` with pull-up + firmware debounce |
-| LEDs | `fastled/FastLED` (or `adafruit/Adafruit NeoPixel`) |
-| Audio (I²S WAV/MP3) | `earlephilhower/ESP8266Audio` (AudioOutputI2S + AudioGeneratorWAV) or `pschatzmann/arduino-audio-tools` |
-| Wi-Fi provisioning | `tzapu/WiFiManager` (captive portal) |
-| Config store | `Preferences` (NVS, built-in) |
+| Audio (I²S WAV) | `earlephilhower/ESP8266Audio` (AudioOutputI2S + AudioGeneratorWAV) or `pschatzmann/arduino-audio-tools` |
 | Filesystem | `LittleFS` (built-in) |
-| OTA (firmware) | `Update` / `HTTPUpdate` (`esp_https_ota`, A/B partitions) |
-| OTA (audio) | `HTTPClient` (download to LittleFS) |
+
+**For the production ESP-IDF port** (once Week-1 findings land): MQTT/JSON/WiFi/OTA are
+already solved in `esp_audio/`'s existing components (`mqtt_ctl`, `wifi_manager`,
+`downloader`) — the port work is adding sensor + motor as new ESP-IDF components
+following that same pattern, not re-solving networking.
 
 > **Audio format** is a shared contract (③). Start with **WAV (PCM, mono, 16 kHz)**
 > for simplicity/CPU; move to MP3 if flash space matters. Agree the final format,
@@ -185,7 +229,13 @@ subtree.
 
 ## 6. Tasks
 
-### Sprint-01 (Sun 26 → Fri 31)
+### Current: Firmware intern Week 1 (see [`INTERN_FIRMWARE_TASKS.md`](INTERN_FIRMWARE_TASKS.md))
+Day-by-day sensor evaluation (HLK-LD116S vs RCWL-0516), motor + HW-166 driver bring-up,
+speaker replication in Arduino IDE, and Friday's integration — supersedes the
+component list in Sprint-01 below (that sprint targeted ESP32-S3/LD2410, since
+superseded by the FireBeetle 2 ESP32-UE N16R2 / HLK-LD116S decision).
+
+### Sprint-01 (Sun 26 → Fri 31) — historical, kept for record
 - **Day 1: gather ALL components** (import-first: ESP32-S3, LD2410, MAX98357A). *This unblocks the whole company.*
 - ESP32-S3 on Wi-Fi; read LD2410 presence/distance.
 - Audio playback from LittleFS; tune dwell threshold + cooldown.

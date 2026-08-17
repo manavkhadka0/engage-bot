@@ -4,8 +4,14 @@ Parts for **one** device. Sourcing is for Nepal / Kathmandu:
 - **Local** = available in Kathmandu electronics shops or Daraz.
 - **Import** = order from AliExpress / India (Robu) — carry spares, longer lead time.
 
-> **Prototype phase:** buy enough for **5 units + spares** (mmWave, ESP32-S3,
-> DAC, and flash are the risky/import items — order extras of these first).
+> **Board + sensor update (2026-08-17):** superseded the original ESP32-S3 N16R8 /
+> HLK-LD2410 plan below with the **DFRobot FireBeetle 2 ESP32-UE (N16R2)** (classic
+> ESP32) and **HLK-LD116S** (evaluating against RCWL-0516 as a cheap fallback) — see
+> [`INTERN_FIRMWARE_TASKS.md`](INTERN_FIRMWARE_TASKS.md) for the bring-up validating
+> this. Motor driver is now confirmed: **HW-166**, a TB6612FNG breakout.
+
+> **Prototype phase:** buy enough for **5 units + spares** (mmWave, MCU, DAC, and
+> flash are the risky/import items — order extras of these first).
 
 ---
 
@@ -13,24 +19,26 @@ Parts for **one** device. Sourcing is for Nepal / Kathmandu:
 
 | # | Item | Suggested part | Qty | Purpose | Sourcing |
 |---|---|---|---|---|---|
-| 1 | Main MCU | **ESP32-S3 DevKit (N16R8 — 16 MB flash, 8 MB PSRAM)** | 1 | Wi-Fi, audio, motor + sensor control | Import (some local stock; verify S3 variant) |
+| 1 | Main MCU | **DFRobot FireBeetle 2 ESP32-UE (N16R2 — 16 MB flash, 2 MB PSRAM)** | 1 | Wi-Fi, audio, motor + sensor control | Already have |
 | 2 | External SPI flash *(optional)* | 16–32 MB NOR flash + LittleFS | 0–1 | Extra audio storage **only if** onboard 16 MB isn't enough | Import |
 
-> **Note:** the N16R8 already has **16 MB onboard flash** — likely enough for
-> one clip and room for several more. Add the external chip only if the clip
-> library grows. This can save cost per unit.
+> **Note:** the N16R2 already has **16 MB onboard flash** (the custom partition table
+> in `esp_audio/partitions.csv` splits it 4 MB app + 10 MB audio storage) — likely
+> enough for one clip and room for several more. Add the external chip only if the
+> clip library grows.
 
 ## Presence detection
 
 | # | Item | Suggested part | Qty | Purpose | Sourcing |
 |---|---|---|---|---|---|
-| 3 | mmWave sensor | **HLK-LD2410** (24 GHz, presence + distance, UART) | 1 | Detect shoppers incl. stationary → dwell time | Import |
+| 3 | mmWave sensor | **HLK-LD116S** (24 GHz, presence — confirm exact protocol during bring-up) | 1 | Detect shoppers incl. stationary → dwell time | Import — already ordered, confirm arrival |
+| 3b | Doppler motion sensor | **RCWL-0516** | 1 | Cheap comparison/fallback — motion-only, **cannot** detect a stationary shopper (see intern Day 2 findings for the empirical test) | Local |
 
 ## Audio
 
 | # | Item | Suggested part | Qty | Purpose | Sourcing |
 |---|---|---|---|---|---|
-| 4 | I²S DAC + amp | **MAX98357A** | 1 | Decode + amplify audio from the ESP32 | Import |
+| 4 | I²S DAC + amp | **MAX98357A** | 1 | Decode + amplify audio from the ESP32 | Import — already in use, see `esp_audio/` |
 | 5 | Speaker | 4 Ω / 8 Ω, 3 W | 1 | Sound output | Local |
 
 ## Motion
@@ -38,7 +46,7 @@ Parts for **one** device. Sourcing is for Nepal / Kathmandu:
 | # | Item | Suggested part | Qty | Purpose | Sourcing |
 |---|---|---|---|---|---|
 | 6 | Gear motor | Planetary gear DC motor (model/torque TBD) | 1 | Move / grip the product | Local/Import |
-| 6b | Motor driver | H-bridge driver — e.g. TB6612FNG / L298N / DRV8833 (confirm) | 1 | Drive the gear motor from ESP32 GPIO (2× direction + PWM) | Local/Import |
+| 6b | Motor driver | **HW-166** (TB6612FNG, 2-channel — only channel A used) | 1 | Drive the gear motor: AIN1/AIN2 direction + PWMA speed + STBY enable | Local/Import |
 | 6c | Limit switch | Micro limit switch, SPDT | 1–2 | Home / end-stop the motor travel | Local |
 | 7 | Bulk capacitor | 1000 µF electrolytic | 1 | Absorb motor current spikes on 5 V rail (esp. stall at limit switch) | Local |
 
@@ -74,20 +82,20 @@ Parts for **one** device. Sourcing is for Nepal / Kathmandu:
 ## Import shortlist (order first, with spares)
 These are the long-lead / not-reliably-local items — get them moving on day 1:
 
-1. **ESP32-S3 N16R8** boards
-2. **HLK-LD2410** mmWave sensors
-3. **MAX98357A** I²S audio amps
-4. (Optional) external **SPI flash** chips
+1. **HLK-LD116S** mmWave sensors (already ordered — confirm arrival before Week-1
+   Day 2 of intern bring-up)
+2. **MAX98357A** I²S audio amps
+3. (Optional) external **SPI flash** chips
 
 ## Locally available (buy as needed)
-Gear motors, motor drivers, limit switches, speakers, 18650 cells + holders,
-BMS, chargers, AC adapters, buck converters, perfboard, wires, connectors,
-passives, LEDs, switches.
+FireBeetle 2 ESP32-UE boards, RCWL-0516 sensors, gear motors, HW-166 motor drivers,
+limit switches, speakers, 18650 cells + holders, BMS, chargers, AC adapters, buck
+converters, perfboard, wires, connectors, passives, LEDs, switches.
 
 ---
 
 ## Cost note
-Fill in per-unit BOM cost once quotes are in — **mmWave (LD2410)** and the
+Fill in per-unit BOM cost once quotes are in — **mmWave (HLK-LD116S)** and the
 **battery pack** are the two biggest cost variables. Total these across the 5
 prototype units to inform the go/no-go and the price you quote Xtreme per unit
 (base = 1 clip; +clips = higher tier).
