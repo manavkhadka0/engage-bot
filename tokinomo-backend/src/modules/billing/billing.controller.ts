@@ -67,8 +67,8 @@ export class BillingController {
   }
 
   @Patch('tenants/:tenantId/tier')
-  @Roles(['PLATFORM_OWNER', 'PLATFORM_OPERATOR'])
-  @ApiOperation({ summary: 'Change tenant tier' })
+  @Roles(['PLATFORM_OWNER'])
+  @ApiOperation({ summary: 'Change tenant tier (owner only)' })
   changeTier(@Param('tenantId') tenantId: string, @Body() dto: ChangeTierDto) {
     return this.billing.changeTier(tenantId, dto.tier as TenantTier, {
       activateNow: dto.activateNow,
@@ -76,8 +76,8 @@ export class BillingController {
   }
 
   @Patch('tenants/:tenantId/status')
-  @Roles(['PLATFORM_OWNER', 'PLATFORM_OPERATOR'])
-  @ApiOperation({ summary: 'Set subscription status' })
+  @Roles(['PLATFORM_OWNER'])
+  @ApiOperation({ summary: 'Set subscription status (owner only)' })
   setStatus(@Param('tenantId') tenantId: string, @Body() dto: SetStatusDto) {
     return this.billing.setStatus(
       tenantId,
@@ -86,8 +86,8 @@ export class BillingController {
   }
 
   @Post('tenants/:tenantId/convert')
-  @Roles(['PLATFORM_OWNER', 'PLATFORM_OPERATOR'])
-  @ApiOperation({ summary: 'Convert trial → paid (month-6 review)' })
+  @Roles(['PLATFORM_OWNER'])
+  @ApiOperation({ summary: 'Convert trial → paid (owner only)' })
   convert(@Param('tenantId') tenantId: string, @Body() dto: ConvertDto) {
     return this.billing.convertFromTrial(
       tenantId,

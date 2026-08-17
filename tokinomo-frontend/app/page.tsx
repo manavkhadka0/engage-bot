@@ -1,150 +1,67 @@
 import Link from "next/link";
-import {
-  TerminalFooter,
-  TerminalNav,
-} from "@/components/marketing/terminal-chrome";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import type { Metadata } from "next";
+import { SiteFooter, SiteNav } from "@/components/marketing/site-chrome";
+import { Hero } from "@/components/marketing/landing/hero";
+import { Objections } from "@/components/marketing/landing/objections";
+import { Tiers } from "@/components/marketing/landing/tiers";
 
-const workbenchSteps = [
-  {
-    cmd: "$ tokinomo tenants create --slug xtreme",
-    caption: "Platform: provision a brand workspace and brand admin.",
-    lines: [
-      "✓ organization created",
-      "✓ BRAND_ADMIN invited",
-      "→ /admin/tenants",
-    ],
-  },
-  {
-    cmd: "$ tokinomo devices assign --serial TK-0042 --tenant xtreme",
-    caption: "Platform: register hardware, assign to tenant + store.",
-    lines: [
-      "serial: TK-0042",
-      "status: PROVISIONING → ONLINE",
-      "tenant: xtreme",
-    ],
-  },
-  {
-    cmd: "$ tokinomo fleet --tenant xtreme",
-    caption: "Brand: live status, detections, plays — no refresh required.",
-    lines: [
-      "online  12",
-      "offline  1",
-      "plays today  438",
-    ],
-  },
-];
+export const metadata: Metadata = {
+  description:
+    "Shelf robots that sense a shopper, play your line, and report what happened — managed across every store from one console. Built by Baliyo Ventures.",
+};
+
+const DIRECTION_CONTRACT = `<!--
+IMPECCABLE DIRECTION CONTRACT · surface: app/page.tsx · mode: persuade
+THESIS: Roundel + type — shelf mechanism as concentric papercut layers; refuses dark SaaS glow and metric heroes.
+OWN-WORLD: Layered Papercut. Light paper field, unmixed madder/green/gold/navy plates, soft paper-edge shadows, geometric sans, pill CTAs, hard-cornered status dots.
+STORY: Brand buyer sees Sense→Speak→Prove in the roundel, walks objections by demonstration, books a demo.
+FIRST VIEWPORT: Left brand + headline + Book a demo; right concentric papercut roundel encoding Sense / Speak / Prove.
+FORM: Layered Papercut · seed e5153db1 · challenger craft-making-lowicz-layered-papercut · approved .impeccable/mocks/papercut-comp-c.png
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+-->`;
 
 export default function HomePage() {
   return (
     <>
-      <TerminalNav />
-      <main className="flex-1">
-        <section className="page-gutter border-b border-[var(--color-rule)] pt-14 pb-16 md:pt-20 md:pb-24">
-          <p className="term-fade font-mono text-[var(--text-sm)] text-[var(--color-muted)]">
-            baliyo://fleet
-          </p>
-          <h1 className="term-fade mt-4 max-w-[18ch] text-[length:var(--text-display)] text-[var(--color-ink)]">
-            Tokinomo
-          </h1>
-          <p className="term-fade mt-5 max-w-[42ch] text-[var(--text-lg)] text-[var(--color-ink-2)]">
-            Shelf robots that detect dwell, play the right clip, and report what
-            happened — one console for Baliyo, one workspace per brand.
-          </p>
-          <div className="term-fade mt-8 flex flex-wrap gap-3">
-            <Link href="/login" className={cn(buttonVariants({ size: "lg" }))}>
-              Open console →
-            </Link>
-            <Link
-              href="/features"
-              className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
-            >
-              Features
-            </Link>
-          </div>
-        </section>
+      <div
+        hidden
+        dangerouslySetInnerHTML={{ __html: DIRECTION_CONTRACT }}
+        suppressHydrationWarning
+      />
+      <SiteNav />
+      <main id="content" className="flex-1 overflow-x-clip">
+        <Hero />
+        <Objections />
+        <Tiers />
 
-        <section className="page-gutter section-gap space-y-10">
-          <div>
-            <h2 className="text-[length:var(--text-display-s)] text-[var(--color-ink)]">
-              Workbench
+        <section className="page-gutter border-t border-[var(--color-rule)] py-20 md:py-28">
+          <div className="mx-auto max-w-6xl">
+            <h2 className="max-w-[20ch] text-[length:var(--text-display-s)] font-semibold tracking-[var(--tracking-display)] text-[var(--color-ink)]">
+              Put one on a shelf and watch it report back.
             </h2>
-            <p className="mt-2 max-w-[55ch] text-[var(--color-muted)]">
-              Three commands from empty rack to live fleet.
+            <p className="mt-4 max-w-[52ch] text-[length:var(--text-lg)] text-[var(--color-ink-2)]">
+              Tell us the stores, the product and the shelf, and we will scope a
+              first deployment — units, mounting and the workspace your team
+              logs into.
             </p>
-          </div>
-
-          <div className="space-y-8">
-            {workbenchSteps.map((step, i) => (
-              <figure
-                key={step.cmd}
-                className="term-fade border border-[var(--color-rule)] bg-[var(--color-paper-2)]"
-                style={{ animationDelay: `${i * 60}ms` }}
-              >
-                <figcaption className="border-b border-[var(--color-rule)] px-4 py-2 text-[var(--text-sm)] text-[var(--color-muted)]">
-                  {step.caption}
-                </figcaption>
-                <pre className="overflow-x-auto p-4 text-[var(--text-sm)] leading-relaxed text-[var(--color-ink-2)]">
-                  <span className="text-[var(--color-accent)]">{step.cmd}</span>
-                  {"\n"}
-                  {step.lines.map((line) => (
-                    <span key={line}>
-                      {line}
-                      {"\n"}
-                    </span>
-                  ))}
-                </pre>
-              </figure>
-            ))}
-          </div>
-        </section>
-
-        <section className="page-gutter border-y border-[var(--color-rule)] py-14">
-          <div className="grid gap-8 md:grid-cols-2">
-            <div>
-              <h2 className="text-[length:var(--text-xl)] text-[var(--color-accent)]">
-                Platform
-              </h2>
-              <p className="mt-3 max-w-[40ch] text-[var(--color-ink-2)]">
-                PLATFORM_OWNER and PLATFORM_OPERATOR create tenants, provision
-                devices, and watch every fleet.
-              </p>
+            <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link
-                href="/login"
-                className="mt-4 inline-block text-[var(--color-ink)] underline underline-offset-4 hover:text-[var(--color-accent)]"
+                href="/contact"
+                className="inline-flex h-11 items-center rounded-[var(--radius-pill)] bg-[var(--color-accent)] px-6 text-[length:var(--text-sm)] font-semibold text-[var(--color-accent-ink)] transition-[filter] duration-[var(--dur-micro)] hover:brightness-110"
               >
-                → /admin
+                Book a demo
               </Link>
-            </div>
-            <div>
-              <h2 className="text-[length:var(--text-xl)] text-[var(--color-accent)]">
-                Brand
-              </h2>
-              <p className="mt-3 max-w-[40ch] text-[var(--color-ink-2)]">
-                BRAND_ADMIN, BRAND_STAFF, and BRAND_VIEWER run their own devices,
-                audio pushes, and analytics — nothing crosses tenants.
-              </p>
               <Link
-                href="/login"
-                className="mt-4 inline-block text-[var(--color-ink)] underline underline-offset-4 hover:text-[var(--color-accent)]"
+                href="/faqs"
+                className="inline-flex h-11 items-center rounded-[var(--radius-pill)] border border-[var(--color-rule-2)] px-6 text-[length:var(--text-sm)] text-[var(--color-ink)] transition-colors duration-[var(--dur-micro)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
               >
-                → /app/[tenant]
+                Read the FAQs
               </Link>
             </div>
           </div>
         </section>
-
-        <aside className="page-gutter sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-rule)] bg-[var(--color-paper)]/95 py-3 backdrop-blur-sm">
-          <p className="text-[var(--text-sm)] text-[var(--color-muted)]">
-            Ready to provision the next brand?
-          </p>
-          <Link href="/login" className={cn(buttonVariants())}>
-            Sign in →
-          </Link>
-        </aside>
       </main>
-      <TerminalFooter />
+      <SiteFooter />
     </>
   );
 }

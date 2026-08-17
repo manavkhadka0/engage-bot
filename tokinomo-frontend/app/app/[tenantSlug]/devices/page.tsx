@@ -16,7 +16,8 @@ export default function BrandDevicesPage({
   const { tenantId } = useTenantContext(tenantSlug);
   const devices = useDevices(tenantId);
   useLiveDeviceStatus(tenantId);
-  const list = devices.data ?? [];
+  const list = devices.data?.items ?? [];
+  const total = devices.data?.total ?? list.length;
 
   return (
     <div className="space-y-8">
@@ -27,7 +28,7 @@ export default function BrandDevicesPage({
         <h1 className="mt-1 text-[length:var(--text-2xl)]">Devices</h1>
       </div>
 
-      <Panel title={`${list.length} assigned`}>
+      <Panel title={`${total} assigned${devices.data?.hasMore ? ` · showing ${list.length}` : ""}`}>
         {devices.isLoading ? (
           <p className="text-[var(--color-muted)]">Loading…</p>
         ) : list.length === 0 ? (

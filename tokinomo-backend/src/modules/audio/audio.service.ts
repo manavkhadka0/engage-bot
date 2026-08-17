@@ -13,7 +13,7 @@ import { BillingService } from '../billing/billing.service';
 import { maxAudioClips } from '../billing/tier-catalog';
 import { CommandPublisher } from '../../workers/jobs/command-publisher';
 
-const MAX_AUDIO_BYTES = 4 * 1024 * 1024;
+export const MAX_AUDIO_BYTES = 4 * 1024 * 1024;
 
 interface WavFormat {
   numChannels: number;
@@ -201,7 +201,7 @@ export class AudioService {
 
     const published = await this.commands.publishCommands(
       commands.map((c) => c.id),
-      { simulateAck: true },
+      { simulateAck: false },
     );
 
     return { clip, commands, published };
