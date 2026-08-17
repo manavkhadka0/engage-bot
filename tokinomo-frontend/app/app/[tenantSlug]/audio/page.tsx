@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import {
   useAudio,
   useDevices,
@@ -8,9 +8,12 @@ import {
   useUploadAudio,
 } from "@/hooks/use-api";
 import { useTenantContext } from "@/hooks/use-tenant";
+import { useLiveDeviceStatus } from "@/hooks/use-live-status";
+import { getRealtimeSocket } from "@/lib/realtime";
 import { EmptyState, Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/field";
+import { cn } from "@/lib/utils";
 
 export default function BrandAudioPage({
   params,
@@ -23,6 +26,7 @@ export default function BrandAudioPage({
   const devices = useDevices(tenantId);
   const upload = useUploadAudio(tenantId);
   const push = usePushAudio(tenantId);
+  useLiveDeviceStatus(tenantId);
 
   const [name, setName] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -34,8 +38,36 @@ export default function BrandAudioPage({
     Array<{ commandId: string; status?: string }> | null
   >(null);
 
+  // Command status only reflects what the push response returned (always
+  // QUEUED/SENT); the device's real ack arrives later over the same
+  // `device.event` socket channel that drives live online/offline dots.
+  useEffect(() => {
+    const socket = getRealtimeSocket();
+    if (!socket) return;
+    const onDeviceEvent = (payload: {
+      type?: string;
+      commandId?: string;
+      ok?: boolean;
+    }) => {
+      if (payload.type !== "command.ack" || !payload.commandId) return;
+      setLastPush((prev) =>
+        prev
+          ? prev.map((c) =>
+              c.commandId === payload.commandId
+                ? { ...c, status: payload.ok ? "ACKED" : "FAILED" }
+                : c,
+            )
+          : prev,
+      );
+    };
+    socket.on("device.event", onDeviceEvent);
+    return () => {
+      socket.off("device.event", onDeviceEvent);
+    };
+  }, []);
+
   const clips = audio.data ?? [];
-  const deviceList = devices.data ?? [];
+  const deviceList = devices.data?.items ?? [];
   const allSelected = useMemo(
     () =>
       deviceList.length > 0 && selectedDevices.length === deviceList.length,
@@ -47,7 +79,7 @@ export default function BrandAudioPage({
     setError(null);
     setMessage(null);
     if (!file) {
-      setError("Choose a WAV file (PCM mono 16 kHz, ≤512 KB).");
+      setError("Choose a WAV file (PCM mono 16-bit, ≤4 MB).");
       return;
     }
     try {
@@ -88,7 +120,7 @@ export default function BrandAudioPage({
         })),
       );
       setMessage(
-        `Push sent to ${selectedDevices.length} device(s) — fake ack arrives in ~400ms.`,
+        `Push sent to ${selectedDevices.length} device(s) — waiting for the device's real ack.`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Push failed");
@@ -202,14 +234,25 @@ export default function BrandAudioPage({
       {error ? <p className="text-[var(--color-danger)]">{error}</p> : null}
 
       {lastPush ? (
-        <Panel title="command ack">
+        <Panel title="command ack (live)">
           <ul className="space-y-1 font-mono text-[var(--text-xs)]">
-            {lastPush.map((c) => (
-              <li key={c.commandId}>
-                {c.commandId.slice(0, 10)}… · {c.status ?? "QUEUED"} → watch for
-                ACKED
-              </li>
-            ))}
+            {lastPush.map((c) => {
+              const status = c.status ?? "QUEUED";
+              const isFinal = status === "ACKED" || status === "FAILED";
+              return (
+                <li
+                  key={c.commandId}
+                  className={cn(
+                    status === "ACKED" && "text-[var(--color-accent)]",
+                    status === "FAILED" && "text-[var(--color-danger)]",
+                    !isFinal && "text-[var(--color-muted)]",
+                  )}
+                >
+                  {c.commandId.slice(0, 10)}… · {status}
+                  {!isFinal ? " — waiting on device…" : ""}
+                </li>
+              );
+            })}
           </ul>
         </Panel>
       ) : null}

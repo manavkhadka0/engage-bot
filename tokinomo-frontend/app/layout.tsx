@@ -1,12 +1,16 @@
-import { JetBrains_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import type { Metadata } from "next";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
-const jetbrains = JetBrains_Mono({
-  variable: "--font-jetbrains",
+const geistSans = Geist({
+  variable: "--font-geist-sans",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
@@ -15,7 +19,7 @@ export const metadata: Metadata = {
     template: "%s · Tokinomo",
   },
   description:
-    "Fleet console for Tokinomo shelf-advertising robots — detect, play, report.",
+    "Shelf robots that sense shoppers, play the right line, and prove what happened — by Baliyo Ventures.",
 };
 
 export default function RootLayout({
@@ -26,10 +30,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      data-theme="terminal"
-      className={`${jetbrains.variable} h-full`}
+      data-theme="papercut"
+      className={`${geistSans.variable} ${geistMono.variable} h-full`}
     >
-      <body className="flex min-h-full flex-col font-mono antialiased">
+      <body className="flex min-h-full flex-col font-sans antialiased">
         <Providers>{children}</Providers>
       </body>
     </html>

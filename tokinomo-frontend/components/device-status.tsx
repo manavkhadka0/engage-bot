@@ -28,7 +28,7 @@ export function DeviceStatusDot({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-2 font-mono text-[var(--text-sm)]",
+        "inline-flex items-center gap-2 font-mono text-[length:var(--text-sm)]",
         className,
       )}
     >

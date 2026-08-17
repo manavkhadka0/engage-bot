@@ -21,7 +21,7 @@ import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 import { sessionToAuth } from '../../common/decorators/auth-ctx.decorator';
 import { TENANT_ID_HEADER } from '../../common/guards/roles.guard';
-import { AudioService } from './audio.service';
+import { AudioService, MAX_AUDIO_BYTES } from './audio.service';
 
 class CreateAudioDto extends createZodDto(
   z.object({
@@ -78,7 +78,7 @@ export class AudioController {
   })
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: { fileSize: 512 * 1024 },
+      limits: { fileSize: MAX_AUDIO_BYTES },
     }),
   )
   upload(

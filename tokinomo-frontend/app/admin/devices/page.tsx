@@ -11,11 +11,14 @@ import {
 import { useLiveDeviceStatus } from "@/hooks/use-live-status";
 import { DeviceStatusDot } from "@/components/device-status";
 import { EmptyState, Panel } from "@/components/ui/panel";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/field";
+import { cn } from "@/lib/utils";
 
 export default function AdminDevicesPage() {
-  const devices = useDevices();
+  const [offset, setOffset] = useState(0);
+  const PAGE_SIZE = 100;
+  const devices = useDevices(null, { limit: PAGE_SIZE, offset });
   const tenants = useTenants();
   const provision = useProvisionDevice();
   const assign = useAssignDevice();
@@ -29,7 +32,9 @@ export default function AdminDevicesPage() {
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const list = devices.data ?? [];
+  const page = devices.data;
+  const list = page?.items ?? [];
+  const total = page?.total ?? 0;
   const tenantList = tenants.data ?? [];
 
   async function onProvision(e: React.FormEvent) {
@@ -153,7 +158,9 @@ export default function AdminDevicesPage() {
       {msg ? <p className="text-[var(--color-accent)]">{msg}</p> : null}
       {error ? <p className="text-[var(--color-danger)]">{error}</p> : null}
 
-      <Panel title={`${list.length} devices`}>
+      <Panel
+        title={`${total} devices${page?.hasMore ? ` · showing ${list.length}` : ""}`}
+      >
         {devices.isLoading ? (
           <p className="text-[var(--color-muted)]">Loading…</p>
         ) : list.length === 0 ? (
@@ -162,68 +169,94 @@ export default function AdminDevicesPage() {
             body="Provision a serial, assign to a tenant, then click Simulate loop."
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[48rem] text-left text-[var(--text-sm)]">
-              <thead className="text-[var(--color-muted)]">
-                <tr className="border-b border-[var(--color-rule)]">
-                  <th className="py-2 pr-4 font-normal">Serial</th>
-                  <th className="py-2 pr-4 font-normal">Status</th>
-                  <th className="py-2 pr-4 font-normal">Tenant</th>
-                  <th className="py-2 pr-4 font-normal">Last seen</th>
-                  <th className="py-2 font-normal">Fake test</th>
-                </tr>
-              </thead>
-              <tbody>
-                {list.map((d) => (
-                  <tr
-                    key={d.id}
-                    className="border-b border-[var(--color-rule)]/60"
-                  >
-                    <td className="py-3 pr-4">{d.serial}</td>
-                    <td className="py-3 pr-4">
-                      <DeviceStatusDot status={d.status} />
-                    </td>
-                    <td className="py-3 pr-4 text-[var(--color-ink-2)]">
-                      {d.tenant?.slug ?? "—"}
-                    </td>
-                    <td className="py-3 pr-4 text-[var(--color-muted)]">
-                      {d.lastSeen
-                        ? new Date(d.lastSeen).toLocaleString()
-                        : "—"}
-                    </td>
-                    <td className="py-3">
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          disabled={!d.tenantId || simulate.isPending}
-                          onClick={() => void runSim(d.id, "online")}
-                        >
-                          online
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          disabled={!d.tenantId || simulate.isPending}
-                          onClick={() => void runSim(d.id, "loop")}
-                        >
-                          loop
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="ghost"
-                          disabled={!d.tenantId || simulate.isPending}
-                          onClick={() => void runSim(d.id, "offline")}
-                        >
-                          offline
-                        </Button>
-                      </div>
-                    </td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[48rem] text-left text-[var(--text-sm)]">
+                <thead className="text-[var(--color-muted)]">
+                  <tr className="border-b border-[var(--color-rule)]">
+                    <th className="py-2 pr-4 font-normal">Serial</th>
+                    <th className="py-2 pr-4 font-normal">Status</th>
+                    <th className="py-2 pr-4 font-normal">Tenant</th>
+                    <th className="py-2 pr-4 font-normal">Last seen</th>
+                    <th className="py-2 font-normal">Fake test</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {list.map((d) => (
+                    <tr
+                      key={d.id}
+                      className="border-b border-[var(--color-rule)]/60"
+                    >
+                      <td className="py-3 pr-4">{d.serial}</td>
+                      <td className="py-3 pr-4">
+                        <DeviceStatusDot status={d.status} />
+                      </td>
+                      <td className="py-3 pr-4 text-[var(--color-ink-2)]">
+                        {d.tenant?.slug ?? "—"}
+                      </td>
+                      <td className="py-3 pr-4 text-[var(--color-muted)]">
+                        {d.lastSeen
+                          ? new Date(d.lastSeen).toLocaleString()
+                          : "—"}
+                      </td>
+                      <td className="py-3">
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            disabled={!d.tenantId || simulate.isPending}
+                            onClick={() => void runSim(d.id, "online")}
+                          >
+                            online
+                          </Button>
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            disabled={!d.tenantId || simulate.isPending}
+                            onClick={() => void runSim(d.id, "loop")}
+                          >
+                            loop
+                          </Button>
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            disabled={!d.tenantId || simulate.isPending}
+                            onClick={() => void runSim(d.id, "offline")}
+                          >
+                            offline
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {page && (page.offset > 0 || page.hasMore) ? (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <button
+                  type="button"
+                  className={cn(
+                    buttonVariants({ variant: "secondary", size: "sm" }),
+                  )}
+                  disabled={offset === 0 || devices.isFetching}
+                  onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    buttonVariants({ variant: "secondary", size: "sm" }),
+                  )}
+                  disabled={!page.hasMore || devices.isFetching}
+                  onClick={() => setOffset((o) => o + PAGE_SIZE)}
+                >
+                  Next
+                </button>
+              </div>
+            ) : null}
+          </>
         )}
       </Panel>
     </div>

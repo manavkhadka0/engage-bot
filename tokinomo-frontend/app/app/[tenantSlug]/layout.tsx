@@ -1,4 +1,4 @@
-import { BrandShell } from "@/components/shells/brand-shell";
+import { BrandShell } from "@/components/shells/app-shell";
 
 export default async function BrandLayout({
   children,
