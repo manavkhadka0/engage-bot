@@ -13,19 +13,32 @@ import { createHash } from 'crypto';
 export class StorageService implements OnModuleInit {
   private readonly logger = new Logger(StorageService.name);
   private readonly client: S3Client;
+  /** Only used to presign; devices on the LAN can't reach `localhost`. */
+  private readonly presignClient: S3Client;
   private readonly bucket: string;
 
   constructor() {
     this.bucket = process.env.S3_BUCKET ?? 'tokinomo';
+    const credentials = {
+      accessKeyId: process.env.S3_ACCESS_KEY_ID ?? 'tokinomo',
+      secretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? '***REMOVED***',
+    };
+    const region = process.env.S3_REGION ?? 'us-east-1';
+    const forcePathStyle = process.env.S3_FORCE_PATH_STYLE !== 'false';
     this.client = new S3Client({
-      region: process.env.S3_REGION ?? 'us-east-1',
+      region,
       endpoint: process.env.S3_ENDPOINT ?? 'http://localhost:9000',
-      forcePathStyle: process.env.S3_FORCE_PATH_STYLE !== 'false',
-      credentials: {
-        accessKeyId: process.env.S3_ACCESS_KEY_ID ?? 'tokinomo',
-        secretAccessKey:
-          process.env.S3_SECRET_ACCESS_KEY ?? '***REMOVED***',
-      },
+      forcePathStyle,
+      credentials,
+    });
+    this.presignClient = new S3Client({
+      region,
+      endpoint:
+        process.env.S3_PUBLIC_ENDPOINT ??
+        process.env.S3_ENDPOINT ??
+        'http://localhost:9000',
+      forcePathStyle,
+      credentials,
     });
   }
 
@@ -66,7 +79,7 @@ export class StorageService implements OnModuleInit {
 
   async getSignedDownloadUrl(key: string, expiresIn = 3600): Promise<string> {
     return getSignedUrl(
-      this.client,
+      this.presignClient,
       new GetObjectCommand({ Bucket: this.bucket, Key: key }),
       { expiresIn },
     );

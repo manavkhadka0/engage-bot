@@ -15,38 +15,38 @@
   --color-sidebar-border: var(--color-rule);
   --color-sidebar-accent-foreground: var(--color-ink);
   --color-sidebar-accent: var(--color-paper-3);
-  --color-sidebar-primary-foreground: var(--color-paper);
+  --color-sidebar-primary-foreground: var(--color-accent-ink);
   --color-sidebar-primary: var(--color-accent);
   --color-sidebar-foreground: var(--color-ink-2);
   --color-sidebar: var(--color-paper-2);
   --color-chart-5: var(--color-muted);
-  --color-chart-4: var(--color-neutral);
-  --color-chart-3: var(--color-ink-2);
-  --color-chart-2: var(--color-warn);
+  --color-chart-4: var(--color-warn);
+  --color-chart-3: oklch(70% 0.12 280);
+  --color-chart-2: var(--color-online);
   --color-chart-1: var(--color-accent);
   --color-ring: var(--color-focus);
   --color-input: var(--color-rule);
   --color-border: var(--color-rule);
   --color-destructive: var(--color-danger);
-  --color-accent-foreground: var(--color-paper);
+  --color-accent-foreground: var(--color-accent-ink);
   --color-accent: var(--color-accent);
   --color-muted-foreground: var(--color-muted);
   --color-muted: var(--color-paper-3);
   --color-secondary-foreground: var(--color-ink);
   --color-secondary: var(--color-paper-3);
-  --color-primary-foreground: var(--color-paper);
+  --color-primary-foreground: var(--color-accent-ink);
   --color-primary: var(--color-accent);
   --color-popover-foreground: var(--color-ink);
   --color-popover: var(--color-paper-2);
   --color-card-foreground: var(--color-ink);
   --color-card: var(--color-paper-2);
-  --radius-sm: 0;
-  --radius-md: 0;
-  --radius-lg: 0;
-  --radius-xl: 0;
-  --radius-2xl: 0;
-  --radius-3xl: 0;
-  --radius-4xl: 0;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+  --radius-3xl: 1.75rem;
+  --radius-4xl: 2rem;
 }
 
 @layer base {
@@ -60,7 +60,20 @@
   }
 
   body {
-    background: var(--color-paper);
+    /* Soft paper grain via overlapping translucent plates — not neon bloom */
+    background:
+      radial-gradient(
+        50% 40% at 12% 0%,
+        color-mix(in oklch, var(--color-layer-gold) 16%, transparent),
+        transparent 70%
+      ),
+      radial-gradient(
+        45% 35% at 92% 8%,
+        color-mix(in oklch, var(--color-accent) 10%, transparent),
+        transparent 65%
+      ),
+      var(--color-paper);
+    background-attachment: fixed;
     color: var(--color-ink);
     font-family: var(--font-body);
     font-size: var(--text-base);
@@ -70,11 +83,6 @@
 
   ::selection {
     background: color-mix(in oklch, var(--color-accent) 35%, transparent);
-    color: var(--color-ink);
-  }
-
-  a {
-    color: inherit;
   }
 
   :focus-visible {
@@ -86,7 +94,7 @@
   h2,
   h3 {
     font-family: var(--font-display);
-    font-weight: 500;
+    font-weight: 600;
     letter-spacing: var(--tracking-display);
     line-height: var(--lh-tight);
     overflow-wrap: anywhere;
@@ -95,30 +103,6 @@
 }
 
 @layer utilities {
-  .font-mono-term {
-    font-family: var(--font-mono);
-  }
-
-  .text-muted-term {
-    color: var(--color-muted);
-  }
-
-  .text-accent-term {
-    color: var(--color-accent);
-  }
-
-  .border-term {
-    border-color: var(--color-rule);
-  }
-
-  .bg-panel {
-    background: var(--color-paper-2);
-  }
-
-  .bg-panel-2 {
-    background: var(--color-paper-3);
-  }
-
   .page-gutter {
     padding-inline: var(--page-gutter);
   }
@@ -126,51 +110,80 @@
   .section-gap {
     padding-block: var(--section-gap);
   }
-}
 
-/* Terminal caret — N8 nav only */
-@keyframes term-blink {
-  50% {
-    opacity: 0;
-  }
-}
-
-.term-caret {
-  display: inline-block;
-  width: 1ch;
-  color: var(--color-accent);
-  animation: term-blink 1.05s steps(2) infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .term-caret {
-    animation: none;
-    opacity: 1;
+  .glass-panel {
+    background: color-mix(in oklch, var(--color-paper) 92%, transparent);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-layer);
   }
 
-  .term-fade,
+  /* Pasted paper plate — marketing containers in the papercut world */
+  .paper-layer {
+    background: var(--color-paper);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-layer);
+  }
+
+  .paper-layer-2 {
+    background: var(--color-paper-2);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-layer);
+  }
+
+  .toki-layer-settle {
+    animation: toki-layer-settle var(--dur-long) var(--ease-out) both;
+  }
+
+  .toki-layer-settle[data-delay="1"] {
+    animation-delay: 80ms;
+  }
+
+  .toki-layer-settle[data-delay="2"] {
+    animation-delay: 160ms;
+  }
+
+  .toki-layer-settle[data-delay="3"] {
+    animation-delay: 240ms;
+  }
+
+  .text-gradient-safe {
+    color: var(--color-ink);
+  }
+
   .status-pulse {
-    animation: none !important;
-    transition: none !important;
+    animation: toki-status-pulse 2s var(--ease-in-out) infinite;
+  }
+
+  /* Fires once when a visitor's interaction lands in the newest chart bucket. */
+  .toki-plot-ping {
+    animation: toki-plot-ping var(--dur-long) var(--ease-out) 1;
+  }
+
+  /* Bars grow on the compositor: scaled from the baseline, never re-laid out. */
+  .toki-bar-grow {
+    transform-origin: bottom;
+    transition: transform var(--dur-long) var(--ease-out);
+  }
+
+  /* Acknowledgement chips arriving device by device. */
+  .toki-ack-land {
+    animation: toki-ack-land var(--dur-short) var(--ease-out) 1;
   }
 }
 
-@keyframes term-fade-in {
+@keyframes toki-marquee {
   from {
-    opacity: 0;
-    transform: translateY(4px);
+    transform: translateX(0);
   }
   to {
-    opacity: 1;
-    transform: none;
+    transform: translateX(-50%);
   }
 }
 
-.term-fade {
-  animation: term-fade-in var(--dur-short) var(--ease-out) both;
-}
-
-@keyframes status-pulse {
+@keyframes toki-status-pulse {
   0%,
   100% {
     opacity: 1;
@@ -180,6 +193,61 @@
   }
 }
 
-.status-pulse {
-  animation: status-pulse 1.8s var(--ease-in-out) infinite;
+/* Sandbox: a credited interaction landing on the newest point of the plot. */
+@keyframes toki-plot-ping {
+  from {
+    transform: translate(-50%, -50%) scale(3.5);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Sandbox: a per-device acknowledgement arriving from the fleet. */
+@keyframes toki-ack-land {
+  from {
+    transform: translateY(-0.25rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toki-layer-settle {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Hero telemetry marker: one continuous read-head across the three signal lanes. */
+@keyframes toki-trace-sweep {
+  from {
+    left: 0%;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toki-trace-marker {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -40,7 +40,7 @@
  * Re-assigned to Test Tenant 1 (esp_audio Feature 2 test) on 2026-08-13;
  * broker IP is the dev machine's current LAN IP, found via `ipconfig
  * getifaddr en0` — update if it changes (DHCP). ---- */
-#define MQTT_BROKER_URI "mqtt://192.168.1.96:1883"
+#define MQTT_BROKER_URI "mqtt://192.168.1.77:1883"
 #define MQTT_USERNAME   "ESP32-3076F5561380"
 #define MQTT_PASSWORD   "***REMOVED***"
 #define TENANT_ID       "cmsrfgesy000gcj955nz07jmx"

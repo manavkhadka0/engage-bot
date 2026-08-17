@@ -7,13 +7,15 @@ import { EmptyState, Panel } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/field";
 
+const MAX_TENANT_MEMBERS = 3;
+
 export default function BrandUsersPage({
   params,
 }: {
   params: Promise<{ tenantSlug: string }>;
 }) {
   const { tenantSlug } = use(params);
-  const { tenantId } = useTenantContext(tenantSlug);
+  const { tenantId, isPlatform } = useTenantContext(tenantSlug);
   const members = useMembers(tenantId);
   const invite = useInviteUser(tenantId);
 
@@ -25,11 +27,17 @@ export default function BrandUsersPage({
   const [error, setError] = useState<string | null>(null);
 
   const list = members.data ?? [];
+  const slotsLeft = Math.max(0, MAX_TENANT_MEMBERS - list.length);
+  const atCap = slotsLeft === 0;
 
   async function onInvite(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setMessage(null);
+    if (atCap) {
+      setError(`Member limit reached (${MAX_TENANT_MEMBERS}).`);
+      return;
+    }
     try {
       await invite.mutateAsync({ email, role });
       setMessage(`Invitation sent to ${email}`);
@@ -47,7 +55,8 @@ export default function BrandUsersPage({
         </p>
         <h1 className="mt-1 text-[length:var(--text-2xl)]">Users</h1>
         <p className="mt-2 text-[var(--text-sm)] text-[var(--color-muted)]">
-          BRAND_ADMIN can invite. BRAND_STAFF / VIEWER see the roster read-only.
+          Brand admin + up to 2 members ({list.length}/{MAX_TENANT_MEMBERS}).
+          {isPlatform ? " Platform view — you can invite on behalf of this tenant." : ""}
         </p>
       </div>
 
@@ -64,6 +73,7 @@ export default function BrandUsersPage({
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              disabled={atCap}
             />
           </div>
           <div>
@@ -71,6 +81,7 @@ export default function BrandUsersPage({
             <Select
               id="role"
               value={role}
+              disabled={atCap}
               onChange={(e) =>
                 setRole(
                   e.target.value as
@@ -86,8 +97,12 @@ export default function BrandUsersPage({
             </Select>
           </div>
           <div className="flex items-end">
-            <Button type="submit" disabled={invite.isPending}>
-              {invite.isPending ? "Sending…" : "Invite →"}
+            <Button type="submit" disabled={invite.isPending || atCap}>
+              {invite.isPending
+                ? "Sending…"
+                : atCap
+                  ? "Full"
+                  : `Invite (${slotsLeft} left) →`}
             </Button>
           </div>
         </form>

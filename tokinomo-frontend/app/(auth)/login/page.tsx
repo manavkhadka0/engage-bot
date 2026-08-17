@@ -7,6 +7,7 @@ import { authClient } from "@/lib/auth";
 import { isPlatformRole } from "@/lib/roles";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/field";
+import { SiteNav } from "@/components/marketing/site-chrome";
 
 function LoginForm() {
   const router = useRouter();
@@ -22,44 +23,30 @@ function LoginForm() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-
     try {
       const { data, error: authError } = await authClient.signIn.email({
         email,
         password,
       });
-
       if (authError) {
         setError(authError.message ?? "Sign-in failed");
         return;
       }
-
       const role = (data?.user as { role?: string } | undefined)?.role;
-
       if (next) {
         router.replace(next);
         return;
       }
-
       if (isPlatformRole(role)) {
         router.replace("/admin");
         return;
       }
-
-      // Resolve brand org slug for redirect
       const orgs = await authClient.organization.list();
       const first = orgs.data?.[0] as { slug?: string; id?: string } | undefined;
       if (first?.id) {
-        await authClient.organization.setActive({
-          organizationId: first.id,
-        });
+        await authClient.organization.setActive({ organizationId: first.id });
       }
-      if (first?.slug) {
-        router.replace(`/app/${first.slug}`);
-        return;
-      }
-
-      router.replace("/app");
+      router.replace(first?.slug ? `/app/${first.slug}` : "/app");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign-in failed");
     } finally {
@@ -94,57 +81,42 @@ function LoginForm() {
           disabled={loading}
         />
       </div>
-
       {error ? (
-        <p
-          className="border border-[var(--color-danger)] bg-[var(--color-paper)] px-3 py-2 text-[var(--text-sm)] text-[var(--color-danger)]"
-          role="alert"
-        >
+        <p className="rounded-xl border border-[var(--color-danger)] px-3 py-2 text-[var(--text-sm)] text-[var(--color-danger)]">
           {error}
         </p>
       ) : null}
-
       <Button type="submit" disabled={loading} className="w-full">
-        {loading ? "Authenticating…" : "Sign in →"}
+        {loading ? "Signing in…" : "Sign in"}
       </Button>
-
-      <p className="text-[var(--text-xs)] text-[var(--color-muted)]">
-        Session via Better Auth · cookies on this origin
-      </p>
     </form>
   );
 }
 
 export default function LoginPage() {
   return (
-    <main className="page-gutter flex flex-1 flex-col justify-center py-16">
-      <div className="mx-auto w-full max-w-md">
-        <p className="text-[var(--text-sm)] text-[var(--color-muted)]">
-          auth --login
-        </p>
-        <h1 className="mt-2 text-[length:var(--text-display-s)]">Sign in</h1>
-        <p className="mt-2 text-[var(--text-sm)] text-[var(--color-ink-2)]">
-          Platform → <code className="text-[var(--color-accent)]">/admin</code>
-          . Brand →{" "}
-          <code className="text-[var(--color-accent)]">/app/[tenant]</code>.
-        </p>
-
-        <div className="mt-8 border border-[var(--color-rule)] bg-[var(--color-paper-2)] p-6">
-          <Suspense
-            fallback={
-              <p className="text-[var(--color-muted)]">Loading form…</p>
-            }
-          >
-            <LoginForm />
-          </Suspense>
+    <>
+      <SiteNav />
+      <main className="page-gutter flex flex-1 flex-col justify-center py-16">
+        <div className="mx-auto w-full max-w-md">
+          <h1 className="text-[length:var(--text-display-s)] font-semibold">
+            Sign in
+          </h1>
+          <p className="mt-2 text-[var(--text-sm)] text-[var(--color-ink-2)]">
+            Platform → admin · Brand → workspace
+          </p>
+          <div className="mt-8 rounded-[var(--radius-card)] border border-[var(--color-rule)] bg-[var(--color-paper-2)] p-6">
+            <Suspense fallback={<p className="text-[var(--color-muted)]">Loading…</p>}>
+              <LoginForm />
+            </Suspense>
+          </div>
+          <p className="mt-6 text-[var(--text-sm)] text-[var(--color-muted)]">
+            <Link href="/" className="underline">
+              ← home
+            </Link>
+          </p>
         </div>
-
-        <p className="mt-6 text-[var(--text-sm)] text-[var(--color-muted)]">
-          <Link href="/" className="underline underline-offset-4">
-            ← home
-          </Link>
-        </p>
-      </div>
-    </main>
+      </main>
+    </>
   );
 }

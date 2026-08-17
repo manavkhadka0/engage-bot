@@ -14,14 +14,14 @@ export function Panel({
   return (
     <section
       className={cn(
-        "border border-[var(--color-rule)] bg-[var(--color-paper-2)]",
+        "rounded-[var(--radius-card)] border border-[var(--color-rule)] bg-[var(--color-paper)] shadow-[var(--shadow-layer)]",
         className,
       )}
     >
       {(title || action) && (
-        <header className="flex items-center justify-between gap-3 border-b border-[var(--color-rule)] px-4 py-2.5">
+        <header className="flex items-center justify-between gap-3 border-b border-[var(--color-rule)] px-4 py-3">
           {title ? (
-            <h2 className="text-[var(--text-sm)] tracking-[var(--tracking-label)] text-[var(--color-muted)] uppercase">
+            <h2 className="text-[length:var(--text-sm)] font-medium text-[var(--color-ink-2)]">
               {title}
             </h2>
           ) : (
@@ -45,15 +45,15 @@ export function Kpi({
   hint?: string;
 }) {
   return (
-    <div className="min-w-0 border border-[var(--color-rule)] bg-[var(--color-paper-2)] p-4">
-      <div className="text-[var(--text-xs)] tracking-[var(--tracking-label)] text-[var(--color-muted)] uppercase">
+    <div className="min-w-0 rounded-[var(--radius-card)] border border-[var(--color-rule)] bg-[var(--color-paper-2)] p-4">
+      <div className="text-[length:var(--text-xs)] tracking-[var(--tracking-label)] text-[var(--color-muted)] uppercase">
         {label}
       </div>
-      <div className="mt-2 font-mono text-[clamp(1.5rem,3vw,2rem)] leading-none text-[var(--color-accent)] tabular-nums">
+      <div className="mt-2 text-[clamp(1.4rem,3vw,1.85rem)] leading-none font-semibold text-[var(--color-accent)] tabular-nums">
         {value}
       </div>
       {hint ? (
-        <div className="mt-2 text-[var(--text-xs)] text-[var(--color-muted)]">
+        <div className="mt-2 text-[length:var(--text-xs)] text-[var(--color-muted)]">
           {hint}
         </div>
       ) : null}
@@ -71,9 +71,9 @@ export function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="border border-dashed border-[var(--color-rule-2)] px-6 py-10 text-center">
-      <p className="text-[var(--color-accent)]">{title}</p>
-      <p className="mx-auto mt-2 max-w-md text-[var(--text-sm)] text-[var(--color-muted)]">
+    <div className="rounded-[var(--radius-card)] border border-dashed border-[var(--color-rule-2)] px-6 py-10 text-center">
+      <p className="font-medium text-[var(--color-ink)]">{title}</p>
+      <p className="mx-auto mt-2 max-w-md text-[length:var(--text-sm)] text-[var(--color-muted)]">
         {body}
       </p>
       {action ? <div className="mt-5 flex justify-center">{action}</div> : null}

@@ -1,75 +1,50 @@
-"use client";
+import type { Metadata } from "next";
+import { SiteFooter, SiteNav } from "@/components/marketing/site-chrome";
+import { DemoRequest } from "@/components/marketing/support/demo-request";
 
-import Link from "next/link";
-import { useState } from "react";
-import {
-  TerminalFooter,
-  TerminalNav,
-} from "@/components/marketing/terminal-chrome";
-import { Button } from "@/components/ui/button";
-import { Input, Label, Textarea } from "@/components/ui/field";
+export const metadata: Metadata = {
+  title: "Book a demo",
+  description:
+    "Request a Tokinomo fleet demo from Baliyo Ventures. Bring brand, store count, product, and timeline — we will scope units and the workspace.",
+};
+
+const DIRECTION_CONTRACT = `<!--
+IMPECCABLE DIRECTION CONTRACT · surface: app/contact/page.tsx · mode: persuade
+THESIS: Checklist + scoped demo form. Refuses generic inbox and fake booking calendar.
+OWN-WORLD: Inherited from DESIGN.md. Midnight instrument deck, hard-cornered cyan markers, soft inputs, pill submit.
+STORY: Visitor brings brand/stores/product/timeline, submits a scoped request, understands the queue is local until email is wired.
+FIRST VIEWPORT: Display headline Book a demo; checklist and form begin immediately below the lede.
+FORM: Checklist + form · seed 8e8edf48 · assigned index 6 · craft bar support-comp-a.png
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+-->`;
 
 export default function ContactPage() {
-  const [sent, setSent] = useState(false);
-
   return (
     <>
-      <TerminalNav />
-      <main className="page-gutter flex-1 py-14 md:py-20">
-        <p className="text-[var(--text-sm)] text-[var(--color-muted)]">
-          contact --write
-        </p>
-        <h1 className="mt-3 text-[length:var(--text-display-s)]">Contact</h1>
-        <p className="mt-3 max-w-[50ch] text-[var(--color-ink-2)]">
-          Fleet demos, brand onboarding, or platform access — leave a note.
-          We&apos;ll reply from Baliyo.
-        </p>
-
-        {sent ? (
-          <div className="mt-10 max-w-md border border-[var(--color-rule)] bg-[var(--color-paper-2)] p-6">
-            <p className="text-[var(--color-accent)]">Message queued.</p>
-            <p className="mt-2 text-[var(--text-sm)] text-[var(--color-muted)]">
-              This form is client-side for now — email us directly while we wire
-              the inbox.
+      <div
+        hidden
+        dangerouslySetInnerHTML={{ __html: DIRECTION_CONTRACT }}
+        suppressHydrationWarning
+      />
+      <SiteNav />
+      <main id="content" className="flex-1 overflow-x-clip">
+        <div className="page-gutter py-16 md:py-24">
+          <div className="mx-auto max-w-6xl">
+            <h1 className="max-w-[12ch] text-[length:var(--text-display)] font-semibold tracking-[var(--tracking-display)] text-[var(--color-ink)]">
+              Book a demo
+            </h1>
+            <p className="mt-4 max-w-[46ch] text-[length:var(--text-lg)] text-[var(--color-ink-2)]">
+              Tell us the brand, the stores, and the shelf. We will scope a first
+              conversation — units, mounting, and the workspace your team logs
+              into.
             </p>
-            <Link
-              href="/"
-              className="mt-4 inline-block text-[var(--color-ink-2)] underline"
-            >
-              ← home
-            </Link>
+            <div className="mt-12 md:mt-14">
+              <DemoRequest />
+            </div>
           </div>
-        ) : (
-          <form
-            className="mt-10 max-w-md space-y-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              setSent(true);
-            }}
-          >
-            <div>
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" name="name" required autoComplete="name" />
-            </div>
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                required
-                autoComplete="email"
-              />
-            </div>
-            <div>
-              <Label htmlFor="message">Message</Label>
-              <Textarea id="message" name="message" required />
-            </div>
-            <Button type="submit">Send →</Button>
-          </form>
-        )}
+        </div>
       </main>
-      <TerminalFooter />
+      <SiteFooter />
     </>
   );
 }

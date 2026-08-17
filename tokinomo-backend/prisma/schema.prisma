@@ -141,6 +141,7 @@ enum TenantTier {
 enum TenantStatus {
   ACTIVE
   SUSPENDED
+  ARCHIVED
 }
 
 enum SubscriptionStatus {
@@ -192,6 +193,9 @@ model Tenant {
   /// White-label (Brand tier): logo URL / subdomain slug
   brandLogoUrl   String?      @map("brand_logo_url")
   brandDomain    String?      @map("brand_domain")
+  /// Platform CRM notes
+  notes          String?
+  archivedAt     DateTime?    @map("archived_at")
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
 
@@ -201,8 +205,24 @@ model Tenant {
   audioClips   AudioClip[]
   events       DeviceEvent[]
   subscription Subscription?
+  auditLogs    TenantAuditLog[]
 
   @@map("tenant")
+}
+
+/// Platform ops audit trail for tenant mutations
+model TenantAuditLog {
+  id          String   @id @default(cuid())
+  tenantId    String   @map("tenant_id")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actorUserId String?  @map("actor_user_id")
+  action      String
+  message     String
+  meta        Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@map("tenant_audit_log")
 }
 
 /// Per-tenant recurring platform subscription (land-and-expand after 6 mo trial)
