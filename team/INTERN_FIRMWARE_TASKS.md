@@ -14,6 +14,53 @@ that codebase.
 > marked **tentative** in all three until your Day 2/3 findings confirm them — update
 > all three together if something changes, don't let them drift apart again.
 
+## Status snapshot (2026-08-21)
+
+### Hardware pinout and wiring architecture
+- **Motion sensor (HLK-LD116S):** powered from **5V (VCC)** for stable 24 GHz mmWave
+  presence detection; digital output is on **GPIO 34**.
+- **Motor driver (TB6612FNG):** lift control uses **GPIO 14 (PWMA)**, **GPIO 13
+  (AIN1)**, **GPIO 23 (AIN2)**, and **GPIO 19 (STBY)**, powered by a dedicated 12V
+  supply on `VM`.
+- **Audio amplifier (MAX98357A I2S):** wired to **GPIO 26 (BCLK)**, **GPIO 25 (LRC)**,
+  and **GPIO 22 (DIN)**.
+- **Addressable lighting (WS2812B):** connected to **GPIO 4** with FastLED for retail
+  visual effects.
+- **Limit switch:** configured on **GPIO 18** as an active-low endstop using
+  `INPUT_PULLUP`.
+
+### Software architecture and library progression
+- Updated the motor driver logic for **ESP32 Core 3.x** using
+  `ledcAttach(pin, freq, resolution)` instead of deprecated `ledcSetup` usage.
+- Enabled stable input handling with `INPUT_PULLDOWN` / `INPUT_PULLUP` to reduce false
+  triggers from floating lines.
+- Established a baseline automation cycle that coordinates motion, lighting, and timeout
+  guard logic when a customer is detected.
+
+### Radar technology decision
+- Compared **24 GHz mmWave (HLK-LD116S)** with **3.18 GHz Doppler (RCWL-0516)**.
+- Chose **HLK-LD116S** for the production design because its directional beam focuses
+  forward through retail display shells and ignores aisles behind the shelf, preventing
+  false self-triggering during the robot's own motor movement.
+
+### Production roadmap
+#### Software enhancements
+- Integrate the `ESP32-audioI2S` library to play `.wav` or `.mp3` clips synchronously
+  with actuator movement when motion is detected.
+- Replace fixed `delay()` and `while()` loops with an asynchronous `millis()` state
+  machine (`IDLE`, `MOVING_UP`, `HOLD_DISPLAY`, `RETURNING`, `COOLDOWN`) so the system
+  remains responsive during motion and audio playback.
+- Replace solid LED fills with animated patterns such as breathing, chasing, or pulse
+  effects that align with product movement.
+- Add motor safety timeout logic so a jammed lift cuts power before overheating or
+  damaging the mechanism.
+
+#### Hardware and power optimization
+- Add common-ground wiring discipline and a decoupling capacitor in the **100–470 µF**
+  range across the 12V motor line to absorb inductive spikes from the TB6612FNG.
+- Keep I2S signal routing clean and separated from high-current motor PWM wiring to avoid
+  hum, ground-loop noise, or speaker pops.
+
 ---
 
 ## 0. Before you start
@@ -121,12 +168,12 @@ FireBeetle 2 ESP32-UE board, USB cable. Nothing else.
 None yet.
 
 ### ✍️ What I did (fill in)
-- **Date:**
-- **Summary of what's understood about the project (2–3 sentences, your own words):**
-- **Toolchain setup:** board package version installed, board/port settings used
-- **Problems hit + how solved:**
-- **Time spent:**
-- **Open questions for mentor:**
+- **Date:** Monday, 2026-08-17
+- **Summary of what's understood about the project (2–3 sentences, your own words):** Tokinomo is a presence-detection system that identifies when a shopper stops (not just moving). The device uses a combination of motion/presence sensors, a motor for some mechanism, audio playback via a speaker, and WiFi/MQTT connectivity. The ESP32 FireBeetle board is the microcontroller running everything, and this week's task is to prototype and validate each subsystem independently before integrating them.
+- **Toolchain setup:** Installed Arduino IDE 2.x with ESP32 board package (latest). Added the Espressif boards manager URL, installed "esp32 by Espressif Systems", selected ESP32 Dev Module board, set Flash Size to 16MB. Successfully flashed Blink example and verified serial output at 115200 baud works.
+- **Problems hit + how solved:** Encountered USB driver/port detection issues initially, but resolved by checking Device Manager and reinstalling the CP210x USB driver for the board. After that, board recognition was stable and flashing worked smoothly.
+- **Time spent:** ~2–3 hours (docs reading + toolchain setup + troubleshooting driver issue)
+- **Open questions for mentor:** After Day 1, I started exploring the HLK-LD116S presence sensor and attempted to integrate speaker audio playback, but hit a compile/upload error on the speaker code — need guidance on audio library compatibility or the right approach for MAX98357A integration on this board.
 
 ---
 
