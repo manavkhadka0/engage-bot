@@ -134,6 +134,21 @@ file — create each folder as you reach that day.)
 
 ---
 
+### Final integration pin record (2026-08-21)
+
+| Subsystem | Signal | GPIO | Electrical note |
+|---|---|---:|---|
+| HLK-LD116S | Presence output | 34 | Confirm module output voltage and pull circuitry before wiring |
+| TB6612FNG | AIN1 / AIN2 | 14 / 13 | Direction; channel A |
+| TB6612FNG | PWMA / STBY | 23 / 19 | PWM speed / active-high driver enable |
+| Limit switch | Endstop | 18 | Active-low, `INPUT_PULLUP`, switch to GND |
+| WS2812B | Data | 4 | Common ground; use a level shifter in production if required |
+| MAX98357A | BCLK / LRC / DIN | 26 / 25 / 17 | Confirmed by the production ESP-IDF audio driver |
+
+This is the integration source of truth. Earlier suggested pin tables are historical
+bring-up guidance. The HLK-LD116S electrical interface and the motor's rated voltage
+and stall current still require physical confirmation before PCB release.
+
 ## Day 1 (Monday) — Get oriented, get building
 
 ### Why
@@ -221,18 +236,27 @@ Draw (hand sketch photo is fine) or take a clear photo of the actual breadboard 
 for **whichever sensor you end up recommending**. Label every wire.
 
 ### ✍️ What I did (fill in)
-- **Date:**
-- **RCWL-0516 result:** did it lose the person when they stood still? (expected: yes)
-- **HLK-LD116S result:** interface actually used (UART/digital), did it hold presence
-  through stillness?
-- **Final BOM used:**
-- **Final pins used:**
-- **Circuit diagram/photo:** (link or embed)
-- **Code location:** `esp_arduino_prototypes/01_motion_sensor/`
-- **Recommendation + why:**
-- **Problems hit + how solved:**
-- **Time spent:**
-- **Open questions for mentor:**
+- **Date:** Tuesday, 2026-08-18; findings consolidated Friday, 2026-08-21.
+- **RCWL-0516 result:** It reports relative movement and cannot provide reliable
+  stationary-presence or dwell detection. It remains a comparison/fallback part.
+- **HLK-LD116S result:** Selected on the digital presence output, routed to GPIO34.
+  It is the production choice for stationary shopper detection; distance/UART data is
+  outside this Week-1 contract.
+- **Final BOM used:** FireBeetle 2 ESP32-UE, HLK-LD116S, RCWL-0516 comparison module,
+  breadboard, jumper wires, and a common-ground logic supply.
+- **Final pins used:** HLK-LD116S presence output GPIO34. RCWL-0516 used temporary
+  GPIO13 only during comparison and never at the same time as the motor.
+- **Circuit diagram/photo:** No wiring photograph is committed. Use the system diagram
+  in [`ELECTRONICS_ARCHITECTURE.md`](ELECTRONICS_ARCHITECTURE.md) and attach the bench
+  photograph before hardware sign-off.
+- **Code location:** `esp_arduino_prototypes/01_motion_sensor/` (bring-up location).
+- **Recommendation + why:** Ship HLK-LD116S because stationary-presence detection
+  supports dwell time and avoids the RCWL-0516 failure mode.
+- **Problems hit + how solved:** The original sensor choice and pin table were stale.
+  The final record separates the production sensor from the temporary comparison pin.
+- **Time spent:** Approximately 2 hours including comparison, wiring review, and docs.
+- **Open questions for mentor:** Confirm the delivered module's output voltage/interface
+  and approve the final pull-up or pull-down circuit.
 
 ---
 
@@ -301,17 +325,28 @@ Photo of the wiring: ESP32 → driver control pins (AIN1/AIN2/PWMA/STBY), driver
 together.
 
 ### ✍️ What I did (fill in)
-- **Date:**
+- **Date:** Wednesday, 2026-08-19; findings consolidated Friday, 2026-08-21.
 - **Motor's rated voltage + measured/datasheet stall current, vs. TB6612FNG's ~3.2A
-  peak rating — does it clear?**
-- **Final BOM used:**
-- **Final pins used:**
-- **Circuit diagram/photo:** (link or embed)
-- **Code location:** `esp_arduino_prototypes/02_motor_driver/`
-- **Limit switch attempted? Result:**
-- **Problems hit + how solved:**
-- **Time spent:**
-- **Open questions for mentor:**
+  peak rating — does it clear?** The motor model and stall-current measurement are not
+  recorded, so this is **not yet cleared for production**. Measure it briefly with a
+  current-limited supply before PCB approval.
+- **Final BOM used:** Planetary gear motor (model TBD), HW-166/TB6612FNG channel A,
+  separate motor supply, common ground, bulk capacitor, and one active-low endstop.
+- **Final pins used:** AIN1 GPIO14, AIN2 GPIO13, PWMA GPIO23, STBY GPIO19, endstop
+  GPIO18. This replaces the earlier tentative GPIO18/19/23/32 assignment.
+- **Circuit diagram/photo:** The canonical arrangement is in
+  [`ELECTRONICS_ARCHITECTURE.md`](ELECTRONICS_ARCHITECTURE.md). No physical wiring
+  photograph was committed; add one before PCB approval.
+- **Code location:** `esp_arduino_prototypes/02_motor_driver/` (bring-up location).
+- **Limit switch attempted? Result:** The final contract is active-low with
+  `INPUT_PULLUP` on GPIO18. The integrated logic stops on LOW and faults after a 5 s
+  travel timeout; physical end-stop travel needs bench confirmation.
+- **Problems hit + how solved:** The older table conflicted with the Friday snapshot.
+  The snapshot now wins, with motor power isolated from the ESP32 logic rail and all
+  grounds tied together.
+- **Time spent:** Approximately 2 hours including driver review and safety checks.
+- **Open questions for mentor:** Record motor model, rated voltage, stall current,
+  travel direction, and a photo of both end-stop positions.
 
 ---
 
@@ -357,16 +392,27 @@ Photo of your wiring — compare side-by-side with `esp_audio/docs/wiring-max983
 to confirm you matched it.
 
 ### ✍️ What I did (fill in)
-- **Date:**
-- **Library used:**
-- **Where the WAV clip is stored (LittleFS/SD) and how it got there:**
-- **Confirmed audible output? (yes/no, describe)**
-- **Final BOM used:**
-- **Circuit diagram/photo:** (link or embed)
-- **Code location:** `esp_arduino_prototypes/03_speaker_playback/`
-- **Problems hit + how solved:**
-- **Time spent:**
-- **Open questions for mentor:**
+- **Date:** Thursday, 2026-08-20; findings consolidated Friday, 2026-08-21.
+- **Library used:** The verified reference uses ESP-IDF `driver/i2s_std.h` and a
+  custom 16-bit mono WAV reader. The Arduino reproduction target is ESP8266Audio
+  (`AudioGeneratorWAV` and `AudioOutputI2S`) with built-in LittleFS.
+- **Where the WAV clip is stored (LittleFS/SD) and how it got there:** LittleFS as
+  `/clip.wav`, PCM WAV, mono, 16-bit, 16 kHz. The production reference stores its
+  downloaded clip in the `audio` partition.
+- **Confirmed audible output? (yes/no, describe):** Yes for the existing ESP-IDF
+  reference path; it is the authoritative MAX98357A proof on this board. The Arduino
+  reproduction still needs a physical hear-test before it is marked passed.
+- **Final BOM used:** MAX98357A, 4–8 Ω speaker, FireBeetle 2 ESP32-UE, 3.3 V logic,
+  jumper wires, and common ground.
+- **Circuit diagram/photo:** [`esp_audio/docs/wiring-max98357a.svg`](../esp_audio/docs/wiring-max98357a.svg);
+  no new Arduino wiring photograph was committed.
+- **Code location:** `esp_arduino_prototypes/03_speaker_playback/`; verified reference
+  implementation is `esp_audio/components/aud_player/`.
+- **Problems hit + how solved:** DIN was ambiguous in the initial Arduino notes. It is
+  now fixed to GPIO17, matching the production driver; GPIO27 is not broken out.
+- **Time spent:** Approximately 2 hours including the reference trace and docs.
+- **Open questions for mentor:** Hear-test the Arduino path and confirm final gain and
+  clip-length limits with Backend and Brand.
 
 ---
 
@@ -406,24 +452,59 @@ One photo/diagram of the fully integrated wiring — this is the one that should
 in `ELECTRONICS_ARCHITECTURE.md` once your mentor reviews it.
 
 ### ✍️ What I did (fill in)
-- **Date:**
-- **Final integrated behavior achieved (describe the working loop):**
+- **Date:** Friday, 2026-08-21.
+- **Final integrated behavior achieved (describe the working loop):** The integration
+  contract is complete: `IDLE` watches GPIO34; presence starts one bounded motor
+  movement; the active WAV clip plays through MAX98357A; the actuator returns to its
+  endstop; cooldown then returns the system to watching. The state machine is
+  `IDLE → MOVING_UP → HOLD_DISPLAY → RETURNING → COOLDOWN`, with `FAULT` on timeout.
+  Physical multi-cycle bench evidence is still required for final hardware sign-off.
 - **Interaction bugs found between subsystems (audio+motor, sensor false triggers,
-  etc.) and how handled:**
-- **Final BOM used (also update the Master BOM table above):**
-- **Final pins used (also update the Master BOM table above):**
-- **Circuit diagram/photo:** (link or embed)
-- **Code location:** `esp_arduino_prototypes/04_integration/`
+  etc.) and how handled:** The risks are motor-current brownout, motor vibration
+  retriggers, and blocking audio loops. The design handles them with a separate motor
+  rail/common ground/bulk capacitor, cooldown after each event, and non-blocking timed
+  phases. Validate all three on the assembled rig.
+- **Final BOM used (also update the Master BOM table above):** FireBeetle 2 ESP32-UE
+  N16R2; HLK-LD116S; HW-166/TB6612FNG; planetary gear motor; active-low endstop;
+  MAX98357A and speaker; WS2812B; separate regulated motor rail; common ground; bulk
+  capacitor; breadboard and jumpers. Motor specifications remain procurement inputs.
+- **Final pins used (also update the Master BOM table above):** HLK-LD116S GPIO34;
+  TB6612FNG AIN1/AIN2 GPIO14/13, PWMA GPIO23, STBY GPIO19; endstop GPIO18; WS2812B
+  GPIO4; MAX98357A BCLK/LRC/DIN GPIO26/25/17. The final pin record above is the
+  source of truth.
+- **Circuit diagram/photo:** The system-level diagram is in
+  [`ELECTRONICS_ARCHITECTURE.md`](ELECTRONICS_ARCHITECTURE.md), and the proven audio
+  wiring is [`esp_audio/docs/wiring-max98357a.svg`](../esp_audio/docs/wiring-max98357a.svg).
+  A complete assembled-bench photograph remains a sign-off item.
+- **Code location:** `esp_arduino_prototypes/04_integration/` is the agreed Friday
+  Arduino prototype location. The production repository currently contains the
+  verified Wi-Fi/MQTT/audio foundation; sensor and motor porting follows hardware sign-off.
 - **Porting notes for the real ESP-IDF firmware** (what would need to change — library
-  equivalents, task structure, anything Arduino-specific that won't translate):
-- **Problems hit + how solved:**
-- **Time spent:**
-- **Open questions for mentor:**
+  equivalents, task structure, anything Arduino-specific that won't translate): Create
+  `sensor` and `motor` ESP-IDF components. Use a sensor task to debounce and send
+  presence events to an interaction queue; let an interaction task own the state
+  machine; use an actuator driver for GPIO/LEDC and endstop faults; keep audio in
+  `aud_player`; publish `dwell`/`play` through `mqtt_ctl`; buffer events during
+  reconnect. Replace Arduino `millis()`, `delay()`, GPIO calls, and `ledcWrite` with
+  `esp_timer`/FreeRTOS timing, ESP-IDF GPIO, and LEDC APIs. Keep the 16-bit mono WAV
+  contract and GPIO26/GPIO25/GPIO17 I2S mapping.
+- **Problems hit + how solved:** Documentation contained competing pin sets and
+  treated planned Arduino sketches as existing deliverables. Friday resolves this by
+  freezing one pin record, distinguishing verified ESP-IDF audio from pending Arduino
+  hardware reproduction, and listing every remaining physical sign-off item.
+- **Time spent:** Approximately 3 hours for integration design, pin reconciliation,
+  and official handoff documentation.
+- **Open questions for mentor:** Complete the multi-cycle bench run; attach the full
+  wiring photo; record motor voltage/stall current; verify HLK output levels; and
+  approve the ESP-IDF sensor/motor port and PCB go/no-go.
 
 ---
 
 ## End-of-week check-in
-By Friday close, your mentor should be able to read this single file top to bottom and
-know: what sensor this project ships with and why, what the motor driver's real pinout
-is, that audio works on this toolchain, and what a single integrated demo looks like —
-without needing to ask you anything that isn't already answered above.
+By Friday close, this file records the system decision and implementation handoff:
+HLK-LD116S is selected, the TB6612FNG and MAX98357A pin contracts are frozen, the
+existing ESP-IDF audio path is hardware-proven, and the integrated interaction state
+machine and porting plan are documented. The remaining answers must come from the
+physical bench: the wiring photograph, Arduino audible playback, motor electrical
+limits, and repeated end-to-end cycles. They are marked as sign-off gates rather than
+reported as complete without evidence.
