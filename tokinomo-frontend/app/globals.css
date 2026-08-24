@@ -21,7 +21,7 @@
   --color-sidebar: var(--color-paper-2);
   --color-chart-5: var(--color-muted);
   --color-chart-4: var(--color-warn);
-  --color-chart-3: oklch(70% 0.12 280);
+  --color-chart-3: oklch(55% 0.05 280);
   --color-chart-2: var(--color-online);
   --color-chart-1: var(--color-accent);
   --color-ring: var(--color-focus);
@@ -40,13 +40,13 @@
   --color-popover: var(--color-paper-2);
   --color-card-foreground: var(--color-ink);
   --color-card: var(--color-paper-2);
-  --radius-sm: 0.5rem;
-  --radius-md: 0.75rem;
-  --radius-lg: 1rem;
-  --radius-xl: 1.25rem;
-  --radius-2xl: 1.5rem;
-  --radius-3xl: 1.75rem;
-  --radius-4xl: 2rem;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: var(--radius-card);
+  --radius-4xl: var(--radius-badge);
 }
 
 @layer base {
@@ -60,25 +60,18 @@
   }
 
   body {
-    /* Soft paper grain via overlapping translucent plates — not neon bloom */
-    background:
-      radial-gradient(
-        50% 40% at 12% 0%,
-        color-mix(in oklch, var(--color-layer-gold) 16%, transparent),
-        transparent 70%
-      ),
-      radial-gradient(
-        45% 35% at 92% 8%,
-        color-mix(in oklch, var(--color-accent) 10%, transparent),
-        transparent 65%
-      ),
-      var(--color-paper);
-    background-attachment: fixed;
+    /* Flat two-tone surface, no color washes — the source system is
+       explicit that section variation comes only from Fog/Snow swaps. */
+    background: var(--color-paper);
     color: var(--color-ink);
     font-family: var(--font-body);
     font-size: var(--text-base);
     line-height: var(--lh-normal);
+    letter-spacing: var(--tracking-body);
     min-height: 100%;
+    transition:
+      background-color var(--dur-short) var(--ease-out),
+      color var(--dur-short) var(--ease-out);
   }
 
   ::selection {
@@ -94,7 +87,7 @@
   h2,
   h3 {
     font-family: var(--font-display);
-    font-weight: 600;
+    font-weight: 400;
     letter-spacing: var(--tracking-display);
     line-height: var(--lh-tight);
     overflow-wrap: anywhere;
@@ -118,16 +111,16 @@
     box-shadow: var(--shadow-layer);
   }
 
-  /* Pasted paper plate — marketing containers in the papercut world */
+  /* Card surface — Snow against the page's Fog, the system's entire depth cue */
   .paper-layer {
-    background: var(--color-paper);
+    background: var(--color-paper-2);
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-card);
     box-shadow: var(--shadow-layer);
   }
 
   .paper-layer-2 {
-    background: var(--color-paper-2);
+    background: var(--color-paper-3);
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-card);
     box-shadow: var(--shadow-layer);

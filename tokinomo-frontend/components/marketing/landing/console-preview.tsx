@@ -80,7 +80,7 @@ export function ConsolePreview() {
         {/* Console top bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-rule)] px-4 py-3">
           <div className="flex items-center gap-3">
-            <span className="text-[length:var(--text-sm)] font-semibold text-[var(--color-ink)]">
+            <span className="text-[length:var(--text-sm)] font-medium text-[var(--color-ink)]">
               Fleet overview
             </span>
             <span className="hidden font-mono text-[length:var(--text-xs)] tracking-[var(--tracking-label)] text-[var(--color-muted)] uppercase sm:inline">
