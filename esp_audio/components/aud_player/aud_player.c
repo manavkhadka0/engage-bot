@@ -20,7 +20,7 @@
 // Board: FireBeetle 2 ESP32-UE (N16R2) — silkscreen labels in comments.
 #define I2S_BCLK_PIN   GPIO_NUM_26   // silkscreen D3
 #define I2S_WS_PIN     GPIO_NUM_25   // silkscreen D2, LRC
-#define I2S_DOUT_PIN   GPIO_NUM_17   // silkscreen D10, DIN on the MAX98357A (GPIO27 isn't broken out on this board)
+#define I2S_DOUT_PIN   GPIO_NUM_22   // DIN on the MAX98357A — moved off GPIO17/D10 to match actual wiring
 
 // 16-bit mono samples pulled from the source per iteration.
 #define CHUNK_SAMPLES  1024

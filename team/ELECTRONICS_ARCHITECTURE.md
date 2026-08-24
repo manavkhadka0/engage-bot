@@ -34,13 +34,22 @@ time is measured and logged for analytics but does **not** branch behaviour yet.
 > below reflect current reality; see
 > [`INTERN_FIRMWARE_TASKS.md`](INTERN_FIRMWARE_TASKS.md) for the Week-1 bring-up work
 > that's validating the sensor choice and the motor driver wiring.
+>
+> **Pin map finalized (2026-08-18):** every GPIO is now assigned (§2.1) — sensor
+> confirmed single-pin only (no bidirectional UART needed), motor driver STBY tied
+> permanently HIGH in hardware instead of a dedicated GPIO, one limit switch (home
+> only), LED moved onto the GPIO that freed up as a result. Week-1 bring-up still
+> decides *which* sensor chip ships (HLK-LD116S vs. RCWL-0516) — that's a part
+> choice, not a pin choice, and doesn't change this map either way. One pin is
+> **decided but not yet flashed**: I²S DIN moves from GPIO17 to GPIO22 — see the
+> note in §2.1 before wiring or flashing.
 
 ```mermaid
 graph LR
     PWR["Power<br/>2S 18650 + BMS + AC charger → buck 5V"] --> ESP["ESP32<br/>FireBeetle 2 ESP32-UE N16R2"]
     LD["HLK-LD116S mmWave<br/>(evaluating vs RCWL-0516)"] -->|UART/digital| ESP
     ESP -->|I2S| AMP["MAX98357A → speaker"]
-    ESP -->|AIN1/AIN2/PWMA/STBY| DRV["HW-166 driver<br/>(TB6612FNG)"] -->|drive| MOT["Planetary gear motor"]
+    ESP -->|AIN1/AIN2/PWMA| DRV["HW-166 driver<br/>(TB6612FNG)<br/>STBY tied HIGH via resistor"] -->|drive| MOT["Planetary gear motor"]
     LIM["Limit switch(es)"] -->|GPIO| ESP
     ESP -->|1-wire| LED["WS2812B LEDs"]
     ESP -->|Wi-Fi| NET(("Cloud"))
@@ -57,32 +66,37 @@ graph LR
 |---|---|---|---|
 | MAX98357A | I²S BCLK | GPIO26 | |
 | MAX98357A | I²S LRCLK (WS) | GPIO25 | |
-| MAX98357A | I²S DIN | GPIO17 | |
 | Touch: download | Input | GPIO4 | legacy touch driver |
 | Touch: play | Input | GPIO12 | boot-strapping pin (MTDI) — handled carefully in firmware |
+
+**Finalized (2026-08-18)** — every remaining subsystem pin is decided. Physical
+verification against this board's silkscreen (D-label ↔ GPIO number) still applies
+before soldering — this project has already found pins missing vs. generic
+tutorials once (GPIO27/16, below):
+
+| Function | Signal | GPIO | Notes |
+|---|---|---|---|
+| MAX98357A | I²S DIN | GPIO22 | **moved off GPIO17 — not yet flashed.** Firmware still has `GPIO_NUM_17` at `esp_audio/components/aud_player/aud_player.c:23`; update that line and re-verify GPIO22 is actually broken out on the header before flashing. GPIO17 is freed once this lands |
+| WS2812B LED | Data | GPIO32 | freed up now that motor STBY (below) no longer needs a dedicated GPIO |
+| mmWave sensor (single-pin only — HLK-LD116S or RCWL-0516, whichever Week-1 confirms) | Digital / UART RX | GPIO34 | input-only pin, no internal pull — add an external pull resistor if the chosen module's output needs one. Confirmed single-pin: if bring-up finds the sensor genuinely needs bidirectional UART (config commands), flag it immediately — this pin budget assumes it doesn't |
+| HW-166 (TB6612FNG) | AIN1 (direction) | GPIO13 | |
+| HW-166 (TB6612FNG) | AIN2 (direction) | GPIO19 | |
+| HW-166 (TB6612FNG) | PWMA (speed) | GPIO23 | LEDC PWM |
+| HW-166 (TB6612FNG) | STBY (enable) | *(no GPIO)* | tied permanently HIGH via a resistor to the driver's logic-supply rail — same pattern already used for the MAX98357A's own SD pin (tied to 3V3 in hardware). No software enable/disable; the driver is live whenever powered |
+| Limit switch (home) | Input (pull-up) | GPIO33 | `INPUT_PULLUP`, switch to GND — debounce in firmware. One switch only (home); no end-of-travel switch in v1 |
+
+**Spare pins** (freed by the above): GPIO14 (was tentative sensor TX, unneeded now
+that the sensor is single-pin), GPIO18 (was tentative AIN1, motor moved to GPIO13
+instead), GPIO35 (input-only, available if a second limit switch is ever added).
 
 **Not broken out on this board's header at all** — don't design around them even
 though generic ESP32 tutorials use them: **GPIO27, GPIO16**.
 
-**Sensor + motor — tentative, being confirmed in Week-1 intern bring-up:**
-
-| Function | Signal | GPIO | Notes |
-|---|---|---|---|
-| HLK-LD116S / RCWL-0516 | RX (ESP ← sensor) | GPIO13 | UART2 RX if HLK-LD116S is UART; digital read if it's a level-output pin |
-| HLK-LD116S | TX (ESP → sensor), only if needed | GPIO14 | leave unconnected if the sensor doesn't take config commands |
-| HW-166 (TB6612FNG) | AIN1 (direction) | GPIO18 | |
-| HW-166 (TB6612FNG) | AIN2 (direction) | GPIO19 | |
-| HW-166 (TB6612FNG) | PWMA (speed) | GPIO23 | LEDC PWM |
-| HW-166 (TB6612FNG) | STBY (enable) | GPIO32 | outputs stay disabled until driven HIGH |
-| Limit switch (home) | Input (pull-up) | GPIO33 | debounce in firmware |
-| Limit switch (opt. 2nd) | Input, no internal pull | GPIO34 | input-only pin — needs an external pull resistor; only if both-ends detection is needed |
-
 **Never use** GPIO6–11 (wired to the board's own flash chip). **Avoid unless
 necessary:** GPIO0, 1, 2, 3, 5, 15 (boot-strapping / USB-serial pins).
 
-WS2812 LED, provision button, and battery-sense pins are not yet assigned on this
-board — add them here once that work is scheduled (currently out of scope for the
-Week-1 sensor/motor/audio bring-up).
+Provision button and battery-sense pins are still not assigned on this board — add
+them here once that work is scheduled.
 
 ### 2.2 Power subsystem (from ARCHITECTURE §5)
 `AC adapter → CC/CV 2S charger → BMS → 2S 18650 pack → buck → 5V` (ESP board LDO → 3.3V).

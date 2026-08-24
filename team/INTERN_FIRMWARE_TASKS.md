@@ -10,9 +10,15 @@ that codebase.
 
 > `ELECTRONICS_ARCHITECTURE.md` and `ELECTRONICS_BOM.md` have been updated (2026-08-17)
 > to match the current board/sensor/driver — board and MAX98357A pins there now agree
-> with this document and with `esp_audio/README.md`. Sensor and motor pins are still
-> marked **tentative** in all three until your Day 2/3 findings confirm them — update
-> all three together if something changes, don't let them drift apart again.
+> with this document and with `esp_audio/README.md`.
+>
+> **Pins finalized (2026-08-18)** — the tables below are no longer "tentative,"
+> they're the pin map to build against. What's still Week-1's job to decide is the
+> **sensor part** (HLK-LD116S vs. RCWL-0516) — that's a component choice, not a pin
+> choice, and doesn't change GPIO34's assignment either way. If Day 2 testing finds
+> the sensor genuinely needs a second GPIO (bidirectional UART for config commands),
+> stop and flag it — the whole pin budget below assumes it's single-pin only. Update
+> all three docs together if anything changes, don't let them drift apart again.
 
 ---
 
@@ -44,19 +50,26 @@ esp_arduino_prototypes/
 file — create each folder as you reach that day.)
 
 **GPIO ground rules for this board** — read before wiring anything:
-- **Already spoken for** by the existing playback firmware — don't reuse: **GPIO26, 25,
-  17** (I2S to the amp), **GPIO4, 12** (touch pads).
+- **Already spoken for** by the existing playback firmware — don't reuse: **GPIO26,
+  25** (I2S to the amp), **GPIO4, 12** (touch pads). **GPIO22** is also spoken for —
+  the amp's I²S DIN is moving there from GPIO17 (decided, not yet flashed; see
+  `ELECTRONICS_ARCHITECTURE.md` §2.1).
+- **Already spoken for** by this week's finalized pin map (don't reuse for anything
+  else): **GPIO32** (WS2812 LED), **GPIO34** (mmWave sensor), **GPIO13, 19, 23**
+  (motor driver AIN1/AIN2/PWMA), **GPIO33** (limit switch, home).
 - **Not broken out on this board's header at all:** GPIO27, GPIO16. Don't design around
   them even though generic ESP32 tutorials use them.
 - **Never use for anything:** GPIO6–11 (wired internally to the board's own flash chip —
   using them will hang or corrupt the board).
 - **Avoid unless you have a specific reason:** GPIO0, 1, 2, 3, 5, 12, 15 (boot-strapping /
   USB-serial pins — wrong state at power-on can stop the board from booting or flashing).
-- The suggested pins below (§ per-day tables) avoid all of the above. **Still verify
-  against the physical board** before soldering anything — D-label silkscreen vs. GPIO
-  number has already been wrong once this project (§ esp_audio/README.md GPIO27/16
-  note). If a suggested pin turns out not to be broken out, pick the next free one from
-  the "safe general-purpose" set: GPIO13, 14, 18, 19, 23, 32, 33, 34, 35.
+- The pins below (§ per-day tables) avoid all of the above. **Still verify against the
+  physical board** before soldering anything — D-label silkscreen vs. GPIO number has
+  already been wrong once this project (§ esp_audio/README.md GPIO27/16 note; GPIO22
+  needs the same check before the DIN move is wired). If a listed pin turns out not to
+  be broken out, the remaining free pins are: **GPIO14, 17, 18, 35** (14 and 18 were
+  tentative sensor/motor pins freed by the final map; 17 frees once the DIN move is
+  flashed; 35 is input-only, spare for a second limit switch if ever needed).
 
 **Daily discipline:**
 - Commit your code + your filled-in section of this doc **at the end of each day**, even
@@ -77,7 +90,7 @@ file — create each folder as you reach that day.)
 | 3 | Doppler motion sensor | RCWL-0516 | 1 | Day 2 | Local — cheap, use as a comparison/fallback |
 | 4 | Planetary gear DC motor | (project's chosen motor) | 1 | Day 3 | Local/Import |
 | 5 | Motor driver | HW-166 (TB6612FNG, 2-channel) | 1 | Day 3 | Local/Import — only channel A used for now |
-| 6 | Limit switch, SPDT | Micro limit switch | 1–2 | Day 3 (stretch) | Local |
+| 6 | Limit switch, SPDT | Micro limit switch | 1 | Day 3 (stretch) | Local — home only, no end-of-travel switch in v1 |
 | 7 | I²S DAC + amp | MAX98357A | 1 | Day 4 | Already used in `esp_audio/` |
 | 8 | Speaker | 4 Ω or 8 Ω, ~3 W | 1 | Day 4 | Local |
 | 9 | Breadboard + jumper wires | — | 1 set | Day 1 | Local |
@@ -162,12 +175,16 @@ and swap in HLK-LD116S the moment it arrives, even if that's mid-week.
 ### BOM
 RCWL-0516, HLK-LD116S, jumper wires, breadboard.
 
-### Pins (suggested — confirm against the board, see §0)
+### Pins (finalized — confirm against the board, see §0)
 | Signal | GPIO | Notes |
 |---|---|---|
-| Sensor RX (ESP receives sensor's data/TX line) | GPIO13 | UART2 RX if HLK-LD116S is UART; simple digital read if it's a level-output pin |
-| Sensor TX (ESP → sensor, only if the sensor needs config commands) | GPIO14 | Leave unconnected if not needed |
-| RCWL-0516 OUT | GPIO13 | Reuse the same pin as sensor RX above — you won't run both sensors wired simultaneously |
+| Sensor input (ESP ← sensor) | GPIO34 | RCWL-0516 OUT (digital) wires straight here; if HLK-LD116S is UART, this is UART2 RX. Input-only pin, no internal pull — add an external pull resistor if the module's output needs one |
+
+**Single-pin only, decided.** No TX pin is budgeted — if HLK-LD116S turns out to need
+config commands sent back to it (bidirectional UART), that's a real conflict with the
+finalized pin map (GPIO34 is input-only and can't do TX). Stop and flag this to your
+mentor immediately rather than improvising a second pin; don't wire both sensors
+simultaneously either way, since only one ships.
 
 ### Circuit diagram
 Draw (hand sketch photo is fine) or take a clear photo of the actual breadboard wiring
@@ -213,8 +230,12 @@ Key facts:
   from turning with the multimeter in series — briefly, don't hold it long) — if stall
   current exceeds ~3.2A this driver isn't enough and you need to flag it before
   building further.
-- **STBY pin:** outputs stay disabled until STBY is driven HIGH — an easy "why isn't
-  anything happening" trap if you forget it.
+- **STBY pin:** outputs stay disabled until STBY is HIGH. This project ties STBY
+  **permanently HIGH via a resistor** to the driver's logic-supply rail (no GPIO,
+  no firmware step) — same pattern already used for the MAX98357A's own SD pin.
+  There's no software enable/disable; the driver is live as soon as it has power.
+  If nothing happens when you apply power, check STBY continuity with a multimeter
+  before suspecting firmware.
 - Exact silkscreen labels can vary slightly by seller — **confirm yours matches**
   (AIN1/AIN2/PWMA/STBY/VM/VCC/GND/AO1/AO2, plus the same set with B) before wiring.
 
@@ -226,13 +247,16 @@ Key facts:
 3. **Tie all grounds together** — ESP32 GND, driver GND, and the separate motor supply's
    GND all need to be common, or nothing will work correctly (this is the single most
    common "driver does nothing" bug).
-4. Wire AIN1, AIN2, PWMA, and STBY per the pin table below. Wire motor leads to AO1/AO2.
-5. Write a sketch: drive STBY HIGH once in `setup()`, then spin forward at half speed
-   for 2s, stop for 1s, spin reverse at half speed for 2s, stop. Use
-   `ledcWrite`/`analogWrite` on PWMA for speed; AIN1/AIN2 set direction (one HIGH one
-   LOW; both LOW = coast/stop, both HIGH = brake).
-6. **Stretch goal, not required today:** wire a limit switch (`INPUT_PULLUP`, one leg to
-   GPIO, other to GND) and stop the motor immediately when it trips.
+4. Wire AIN1 and AIN2 (direction) and PWMA (speed) per the pin table below. Wire
+   **STBY to a resistor pull to the driver's logic-supply rail** (not a GPIO — no
+   pin budgeted for it), and check continuity with a multimeter before applying
+   power. Wire motor leads to AO1/AO2.
+5. Write a sketch: spin forward at half speed for 2s, stop for 1s, spin reverse at
+   half speed for 2s, stop. No STBY step needed in `setup()` — it's already HIGH in
+   hardware. Use `ledcWrite`/`analogWrite` on PWMA for speed; AIN1/AIN2 set
+   direction (one HIGH one LOW; both LOW = coast/stop, both HIGH = brake).
+6. **Stretch goal, not required today:** wire the home limit switch (`INPUT_PULLUP`,
+   one leg to GPIO, other to GND) and stop the motor immediately when it trips.
 
 ### BOM
 Planetary gear DC motor, HW-166 (TB6612FNG) driver, 5 V bench supply/power bank, limit
@@ -241,17 +265,18 @@ switch (stretch), jumper wires, multimeter.
 ### Pins
 | Signal | GPIO | Notes |
 |---|---|---|
-| AIN1 (direction) | GPIO18 | |
+| AIN1 (direction) | GPIO13 | |
 | AIN2 (direction) | GPIO19 | |
 | PWMA (speed) | GPIO23 | `ledcWrite` |
-| STBY (enable) | GPIO32 | must be driven HIGH or outputs stay off |
+| STBY (enable) | *(no GPIO)* | tied permanently HIGH via a resistor to the logic-supply rail — see §"What HW-166 actually is" above |
 | Limit switch (home) — stretch | GPIO33 | `INPUT_PULLUP`, switch to GND |
-| Limit switch (end) — stretch, if 2 needed | GPIO34 | input-only pin, **no internal pull** — needs an external pull resistor |
+
+One limit switch only (home) — no end-of-travel switch in v1.
 
 ### Circuit diagram
-Photo of the wiring: ESP32 → driver control pins (AIN1/AIN2/PWMA/STBY), driver → motor
-(AO1/AO2), driver VM → separate 5V supply, driver VCC → ESP32 3.3V, all grounds tied
-together.
+Photo of the wiring: ESP32 → driver control pins (AIN1/AIN2/PWMA), STBY → resistor
+pull to the logic-supply rail (not the ESP32), driver → motor (AO1/AO2), driver VM →
+separate 5V supply, driver VCC → ESP32 3.3V, all grounds tied together.
 
 ### ✍️ What I did (fill in)
 - **Date:**
@@ -279,7 +304,10 @@ audio in the same toolchain as your sensor + motor code.
 
 ### How
 1. Read [`esp_audio/README.md`](../esp_audio/README.md)'s wiring table — **use those
-   exact pins**, don't reinvent them; they're already confirmed working:
+   exact pins**, don't reinvent them; they're already confirmed working. (DIN is
+   moving to GPIO22 in the finalized map per `ELECTRONICS_ARCHITECTURE.md` §2.1, but
+   that firmware change hasn't landed yet — replicate what's actually flashed today,
+   GPIO17, not the pending target.)
 
    | MAX98357A pin | GPIO |
    |---|---|

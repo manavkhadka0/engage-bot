@@ -35,6 +35,54 @@ idf.py -p /dev/tty.usbserial-0001 flash monitor
 `hello.wav` (already in this repo) is 16-bit mono — the only format `aud_player`
 accepts. `techno.wav` and `test_tone.wav` are also in the repo for a longer/simpler clip.
 
+## Standalone hardware-loop test (current `main.c` — no backend/frontend)
+
+Unlike the isolated-playback variant above, this one **is** the current `main.c` on
+this branch — a full PIR → audio+motor+LED → reed-switch → home loop, with WiFi/MQTT
+deliberately not wired up. It's for proving the physical loop end-to-end on the bench
+before a backend/frontend exist to talk to. Ported from a bench-tested Arduino
+(FastLED + ESP32-audioI2S) sketch — see `main/main.c`'s header comment for what
+changed in the port (the touch-button flow is gone, freeing GPIO4 for the LED; the
+home-timeout safety is now actually enforced, not just defined-and-unused).
+
+**Pin map used by this build:**
+
+| Function | GPIO | Notes |
+|---|---|---|
+| I²S BCLK / LRC / DIN (MAX98357A) | 26 / 25 / 22 | DIN moved off the proven GPIO17 — verify GPIO22 is actually broken out on your board before flashing |
+| PIR sensor | 34 | input-only, no internal pull |
+| WS2812B LED data | 4 | touch buttons are gone in this build, so this pin is free |
+| Motor AIN1 / AIN2 / PWMA / STBY | 13 / 23 / 14 / 19 | STBY is GPIO-driven here (set HIGH once at boot), not resistor-tied |
+| Reed switch (home) | 18 | `INPUT_PULLUP`; LOW = magnet present = home |
+
+**Before building:** flash `techno.wav` onto the `audio` partition — it's the bundled
+default clip for this test, no download step:
+
+```bash
+. $HOME/esp/esp-idf/export.sh
+idf.py set-target esp32
+idf.py build
+python $IDF_PATH/components/partition_table/parttool.py \
+  --port /dev/tty.usbserial-0001 \
+  write_partition --partition-name audio --input techno.wav
+idf.py -p /dev/tty.usbserial-0001 flash monitor
+```
+
+Re-run just the `write_partition` line (no rebuild needed) any time you want to swap
+the clip — `idf.py flash` only touches the app partition, it won't overwrite `audio`.
+
+**Expected behavior:** PIR trips (3 consecutive reads) → red/white LED flicker + clip
+plays + motor drives forward, reed switch ignored → clip finishes → LED goes green,
+motor keeps driving forward, reed switch now active → magnet trips the reed switch →
+motor stops, LEDs off → back to waiting. If the reed switch doesn't trip within 10s of
+the clip finishing, the motor stops and the device enters a FAULT state (logged) rather
+than running the motor indefinitely — reboot to clear it.
+
+**Not done by this build:** WiFi, MQTT, and the touch-button download/play flow from
+the networked firmware. Re-integrating those (real backend audio pushes, events over
+MQTT) is the deliberate next step once a backend is reachable — the `wifi_manager`,
+`downloader`, and `mqtt_ctl` components are untouched and still in this repo for that.
+
 ---
 
 ## How it works
