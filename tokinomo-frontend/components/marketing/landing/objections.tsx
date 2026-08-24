@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Check, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Reveal } from "@/components/motion/reveal";
 import { ConsolePreview } from "./console-preview";
 
 /* ---------------------------------------------------------------- demos --- */
@@ -612,19 +613,21 @@ export function Objections() {
           {/* Answers */}
           <div className="min-w-0 space-y-20 md:space-y-28">
             {OBJECTIONS.map((item) => (
-              <article key={item.id} id={item.id} className="scroll-mt-28">
-                <span className="font-mono text-[length:var(--text-xs)] tracking-[var(--tracking-label)] text-[var(--color-accent)]">
-                  {item.n}
-                </span>
-                <h2 className="mt-2 max-w-[24ch] text-[length:var(--text-display-s)] font-semibold text-[var(--color-ink)]">
-                  {item.question}
-                </h2>
-                <p className="mt-4 max-w-[52ch] text-[length:var(--text-lg)] text-[var(--color-ink-2)]">
-                  {item.lede}
-                </p>
-                {item.extra}
-                <div className="mt-8">{item.demo}</div>
-              </article>
+              <Reveal key={item.id} as="div" y={40}>
+                <article id={item.id} className="scroll-mt-28">
+                  <span className="font-mono text-[length:var(--text-xs)] tracking-[var(--tracking-label)] text-[var(--color-accent)]">
+                    {item.n}
+                  </span>
+                  <h2 className="mt-2 max-w-[24ch] text-[length:var(--text-display-s)] font-normal tracking-[var(--tracking-display)] text-[var(--color-ink)]">
+                    {item.question}
+                  </h2>
+                  <p className="mt-4 max-w-[52ch] text-[length:var(--text-lg)] text-[var(--color-ink-2)]">
+                    {item.lede}
+                  </p>
+                  {item.extra}
+                  <div className="mt-8">{item.demo}</div>
+                </article>
+              </Reveal>
             ))}
           </div>
         </div>
