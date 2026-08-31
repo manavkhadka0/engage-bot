@@ -21,7 +21,7 @@
 #define PWM_SPEED_MODE   LEDC_LOW_SPEED_MODE
 
 /* 0-255 (8-bit duty). Forward-only for v1, so this is the only speed used. */
-#define MOTOR_SPEED      255
+#define MOTOR_SPEED      180
 
 
 esp_err_t motor_driver_init(void)
