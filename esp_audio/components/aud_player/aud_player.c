@@ -16,6 +16,16 @@
 
 #define TAG "AUD_PLAYER"
 
+// Checked once per DMA chunk in the streaming loop below — lets another
+// task cut a playback short instead of always running to the end of the
+// clip. See aud_player_request_stop() in the header for the contract.
+static volatile bool s_stop_requested = false;
+
+void aud_player_request_stop(void)
+{
+    s_stop_requested = true;
+}
+
 // I2S pins to the MAX98357A. SD (shutdown/enable) is tied to 3V3 in hardware.
 // Board: FireBeetle 2 ESP32-UE (N16R2) — silkscreen labels in comments.
 #define I2S_BCLK_PIN   GPIO_NUM_26   // silkscreen D3
@@ -173,6 +183,8 @@ static esp_err_t wav_parse(pcm_reader_t rd, void *ctx, wav_info_t *out)
 // rate, then stream the 16-bit PCM data straight to the MAX98357A.
 static esp_err_t play_stream(pcm_reader_t rd, void *ctx)
 {
+    s_stop_requested = false;   // this call's playback hasn't been asked to stop (yet)
+
     wav_info_t wav = {0};
     esp_err_t  err = wav_parse(rd, ctx, &wav);
 
@@ -234,6 +246,11 @@ static esp_err_t play_stream(pcm_reader_t rd, void *ctx)
 
     while (remaining > 0)
     {
+        if (s_stop_requested)
+        {
+            break;                      // caller cut this playback short
+        }
+
         size_t want = remaining < sizeof(in) ? remaining : sizeof(in);
         size_t got  = rd(ctx, in, want);
 
@@ -268,14 +285,21 @@ static esp_err_t play_stream(pcm_reader_t rd, void *ctx)
     i2s_channel_disable(tx);
     i2s_del_channel(tx);
 
-    if (remaining > 0)
+    if (s_stop_requested)
+    {
+        ESP_LOGI(TAG, "Playback stopped early by request (%u of %u bytes unplayed)",
+                 (unsigned)remaining, (unsigned)wav.data_size);
+    }
+    else if (remaining > 0)
     {
         ESP_LOGW(TAG, "Source ran out early: %u of %u bytes unplayed "
                       "(stored file is shorter/truncated)",
                  (unsigned)remaining, (unsigned)wav.data_size);
     }
-
-    ESP_LOGI(TAG, "Playback completed");
+    else
+    {
+        ESP_LOGI(TAG, "Playback completed");
+    }
 
     return ESP_OK;
 }
