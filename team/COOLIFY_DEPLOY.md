@@ -1,173 +1,172 @@
-# Coolify deploy notes — Tokinomo
+# Deploying Tokinomo — Hostinger VPS + Coolify + GitHub-built images
 
-## Services in one Coolify project
+How the pieces fit:
 
-| Service | Image / build | Port | Notes |
-|---|---|--:|---|
-| `api` | `tokinomo-backend/Dockerfile` | 3000 | NestJS; migrates on boot |
-| `web` | `tokinomo-frontend/Dockerfile` | 3001 | Next.js; set build args |
-| `postgres` | `timescale/timescaledb:latest-pg16` | 5432 | Internal |
-| `redis` | `redis:7-alpine` | 6379 | BullMQ |
-| `minio` | `minio/minio` | 9000 | **Local dev only** — image no longer pullable; hosted audio storage → R2/B2 (see "Object storage") |
-| `emqx` | `emqx/emqx:5.8.6` | 1883 / 18083 | MQTT — per-device auth + ACL via `api` (Contract ④) |
+```
+git push main ──► GitHub Actions builds api / web / backup images ──► ghcr.io
+                                                                          │ pull
+Hostinger VPS (Coolify + Traefik, Let's Encrypt TLS) ◄────────────────────┘
+  ├─ web      https://app.<domain>      (Next.js)
+  ├─ api      https://api.<domain>      (NestJS + websocket)
+  ├─ emqx     mqtts://mqtt.<domain>:8883 (devices)   ← Traefik terminates TLS
+  ├─ postgres / redis                   (internal only)
+  └─ backup   nightly pg_dump ─────────────────────────► Cloudflare R2
+Cloudflare R2: audio clips + DB backups      Resend: transactional email
+```
 
-Local stacks (both verified end to end — see `team/TEST_CHECKLIST.md`):
+The whole stack is **one Docker Compose resource**: [`docker-compose.prod.yml`](../docker-compose.prod.yml)
+(variables to fill in: [`.env.prod.example`](../.env.prod.example)). Nothing is built on the server.
 
-- Infra only + `pnpm start:dev` / `pnpm dev`: `tokinomo-backend/docker-compose.yml`.
-- Production-image rehearsal (real `api` + `web` Dockerfiles, empty-DB first boot):
-  `HOST_IP=<LAN IP> docker compose -f docker-compose.yml -f docker-compose.full.yml up -d --build`
-  (create its DB once: `CREATE DATABASE tokinomo_full`). Uses its own EMQX volume.
+**What was verified locally** (full production-shaped rehearsal, `docker-compose.prod.local.yml`):
+the compose file, all three images, empty-database first boot + migrations, seed, `storage:check`,
+backup + restore drill, and `scripts/prod-smoke.mjs` (21/21 steps).
+**What only the real server can confirm:** Coolify's handling of this compose file, the MQTT-TLS route through
+Traefik (§6), Cloudflare R2 itself, Resend delivery, and the GitHub Actions workflow (first run).
+Each of those has a check below. Prices change — confirm at checkout.
 
-## Object storage — read before deploying MinIO
+## 0. What you need
+| Item | Notes |
+|---|---|
+| Hostinger VPS | **KVM 2** (2 vCPU / 8 GB / 100 GB) recommended; KVM 1 (1 vCPU / 4 GB) is workable now that nothing is built on the box. Template **"Ubuntu 24.04 with Coolify"**. |
+| Domain | Any registrar. Hostnames used below: `app.`, `api.`, `mqtt.`, `coolify.` + your domain. |
+| Cloudflare account | R2 bucket (audio + backups). May ask for a card even on the free tier. |
+| Resend account | Free tier; the sending **domain must be verified** or tenant emails won't deliver. |
+| GitHub repo | Already set up (public). |
 
-**The `minio/minio` and `minio/mc` images are no longer pullable** from Docker
-Hub or quay.io (checked 2026-10-08, even `latest`). `docker-compose.yml` only
-works on a machine that still has them cached, so **do not deploy the `minio`
-service on a fresh Coolify host.** The backend only speaks the S3 API
-(`StorageService` reads `S3_ENDPOINT`, `S3_PUBLIC_ENDPOINT`, `S3_REGION`,
-`S3_FORCE_PATH_STYLE`), so any S3-compatible store works with env changes only:
+## 1. DNS
+A records → the VPS IPv4: `app`, `api`, `mqtt`, `coolify`. If DNS is on Cloudflare keep them **DNS only**
+(grey cloud) — the orange-cloud proxy breaks the MQTT port and websockets. Add Resend's SPF/DKIM records
+once you add the domain in Resend.
 
-- Free managed tier — Cloudflare R2 or Backblaze B2 (recommended for anything
-  internet-facing; setup below).
-- Self-hosted alternative — Garage, SeaweedFS or RustFS (images are pullable).
+## 2. Server (Hostinger)
+1. Create the VPS with the Coolify template; add your SSH key; disable password SSH login.
+2. **Firewalls — two layers, both must allow the port:** Hostinger hPanel firewall (default drops everything:
+   add the SSH rule first) **and** the OS firewall (`sudo ufw status`). Allow **22** (ideally only your IP),
+   **80**, **443**, **8883**. Port **8000** (Coolify's first-run UI) only until step 3, then close it.
+   Everything else stays closed — postgres/redis/EMQX dashboard are not exposed.
+3. Open `http://<ip>:8000`, create the admin account, then Settings → set the instance domain
+   `https://coolify.<domain>`, enable 2FA. Close port 8000.
 
-### Free-tier setup: Cloudflare R2 (recommended)
+## 3. GitHub (builds the images)
+Repo → Settings → Secrets and variables → Actions:
+- **Variables:** `NEXT_PUBLIC_APP_URL=https://app.<domain>` and `NEXT_PUBLIC_API_URL=https://api.<domain>`
+  (baked into the web image — changing the domain later means re-running the workflow).
+- **Secrets** (optional, auto-redeploy): `COOLIFY_DEPLOY_WEBHOOK` (the resource's Deploy Webhook URL) and
+  `COOLIFY_API_TOKEN` (Coolify → Keys & Tokens).
+- Run **Actions → Build images → Run workflow**. It builds `tokinomo-api`, `tokinomo-web`, `tokinomo-backup`
+  (linux/amd64) and pushes `:latest` and `:sha-<commit>` to `ghcr.io/<owner>/`.
+  It refuses to build the web image if the two variables are missing or not `https://`.
+- After the first run, make each of the 3 packages **public** (Package settings → Change visibility; they
+  contain no secrets) — or `docker login ghcr.io` on the server with a `read:packages` token.
 
-Verified: the app's storage code and `pnpm storage:check` against MinIO.
-**Not yet verified against R2 itself** — that needs your Cloudflare account;
-step 4 is how you verify it. Check Cloudflare's pricing page for the current
-free allowance (at time of writing: 10 GB storage and generous request
-quotas, with no egress fees) and whether signup asks for a payment method.
+## 4. Cloudflare R2 (audio + backups)
+1. R2 → **Create bucket** `tokinomo`. (Optional: Settings → Object lifecycle → expire prefix `backups/` after
+   30 days; the backup job already prunes to 14 days itself.)
+2. R2 → **Manage API tokens** → Object Read & Write, scoped to that bucket. Copy Access Key ID, Secret, and
+   your Account ID.
+3. You'll paste these into Coolify in §6 (`S3_ENDPOINT=S3_PUBLIC_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com`,
+   `S3_REGION=auto`). Verify them *before* deploying, from your laptop with the same variables in
+   `tokinomo-backend/.env`: `pnpm storage:check` — all four lines must `PASS`.
 
-1. Cloudflare dashboard → **R2 Object Storage** → **Create bucket** → name it
-   `tokinomo`.
-2. R2 → **Manage API tokens** → **Create API token** → permission
-   **Object Read & Write**, scoped to the `tokinomo` bucket only. Copy the
-   **Access Key ID** and **Secret Access Key** (shown once) and your
-   **Account ID**.
-3. Set these on the `api` service (Coolify env), replacing the MinIO values:
-   ```
-   S3_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
-   S3_PUBLIC_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
-   S3_REGION=auto
-   S3_ACCESS_KEY_ID=<access key id>
-   S3_SECRET_ACCESS_KEY=<secret access key>
-   S3_BUCKET=tokinomo
-   S3_FORCE_PATH_STYLE=true
-   ```
-   Do **not** deploy the `minio` / `minio-init` services. Create the bucket by
-   hand (step 1); the backend's auto-create only logs a warning because a
-   bucket-scoped token can't create buckets.
-4. Verify before pointing devices at it — from your machine with the same
-   variables in `tokinomo-backend/.env` (or exported):
+Free-tier limits (at time of writing: 10 GB storage, 1M writes + 10M reads per month, no egress fees) — check
+Cloudflare's pricing page. **Backblaze B2** works the same way: bucket-scoped Application Key,
+`S3_ENDPOINT=https://s3.<region>.backblazeb2.com`, `S3_REGION=<region>`. The S3 client already sends no
+unsupported checksums (`WHEN_REQUIRED`).
+`S3_PUBLIC_ENDPOINT` is the host presigned download URLs carry to the **device**, so it must be reachable
+from the ESP32 — R2/B2 are HTTPS, which the firmware downloader handles (Mozilla cert bundle).
+No bucket CORS is needed (devices download, browsers don't).
+
+> The `minio/minio` image is no longer pullable from Docker Hub or quay.io (checked 2026-10-08, even `latest`).
+> MinIO exists only for local dev (`tokinomo-backend/docker-compose.yml`, works while the image is cached) —
+> **never deploy it.**
+
+## 5. Resend
+Add your domain → add the DNS records it shows → wait for "Verified" → create an API key. Set
+`RESEND_FROM_EMAIL=Tokinomo <noreply@<domain>>`.
+
+## 6. Coolify
+1. **New resource → Docker Compose** (public GitHub repo, branch `main`). Base directory `/`, compose file
+   `/docker-compose.prod.yml`. In General, enable **Preserve repository during deployment** (EMQX's config
+   file is bind-mounted from the repo).
+2. **Environment variables:** everything in `.env.prod.example`. Coolify generates the
+   `SERVICE_PASSWORD_64_*` secrets itself — leave them. `COOKIE_DOMAIN` must be the parent domain **with a
+   leading dot** (e.g. `.example.com`): the session cookie is set on `app.` but the realtime websocket
+   connects to `api.` and authenticates with it (without it live dashboards silently never update).
+3. **Domains** (Coolify generates the Traefik rules): `api` → `https://api.<domain>:3000`,
+   `web` → `https://app.<domain>:3001`. Don't publish host ports for either.
+4. **MQTT over TLS — add the Traefik entrypoint (unverified until your first deploy).**
+   Servers → *your server* → Proxy → Configuration: add to the `command:` list
+   `- '--entrypoints.mqtts.address=:8883'` and to `ports:` `- '8883:8883'`, save, **restart the proxy**.
+   `docker-compose.prod.yml` already labels `emqx` with a TCP router (`HostSNI(mqtt.<domain>)`, TLS via the
+   `letsencrypt` resolver, forwarding plain MQTT to EMQX on 1883). If Traefik can't reach the container,
+   add `traefik.docker.network=<the network shown by docker network ls for this resource>` to those labels.
+   **Gate — don't touch devices until this passes:**
    ```bash
-   pnpm storage:check
+   openssl s_client -connect mqtt.<domain>:8883 -servername mqtt.<domain> </dev/null | grep -E 'Verify return|subject'
    ```
-   or, on the deployed API (the runtime image has no pnpm):
-   ```bash
-   node_modules/.bin/tsx scripts/storage-check.ts
-   ```
-   It uploads a tiny object, presigns a URL, downloads it and compares bytes.
-   All four lines must say `PASS`.
+   (expect `Verify return code: 0 (ok)`). *Fallback if Coolify's proxy resists:* let EMQX terminate TLS itself
+   (8883 listener + a Let's Encrypt cert from acme.sh via DNS-01, mounted read-only) — ask and I'll write it.
+5. Deploy. The API container applies the database migrations on boot (empty database is fine).
 
-R2 serves HTTPS only. That is fine for the ESP32 downloader (it uses the
-Mozilla cert bundle). The audio is fetched by the device, not the browser, so
-no bucket CORS rules are needed.
-
-### Free-tier alternative: Backblaze B2
-
-Same steps with: bucket created in B2, an **Application Key** scoped to that
-bucket (read + write), `S3_ENDPOINT` = `S3 Endpoint` shown on the bucket page
-(`https://s3.<region>.backblazeb2.com`), `S3_PUBLIC_ENDPOINT` = same,
-`S3_REGION` = the region in that hostname (e.g. `us-west-004`),
-`S3_ACCESS_KEY_ID` = keyID, `S3_SECRET_ACCESS_KEY` = applicationKey. Verify
-with `pnpm storage:check`. Check B2's current free allowance and egress terms.
-
-`S3_PUBLIC_ENDPOINT` is what presigned download URLs carry to the device, so it
-must be reachable from the ESP32 (the firmware downloader supports HTTPS via
-the Mozilla cert bundle). Locally that is this machine's *current* LAN IP —
-a stale value means uploads work but devices cannot download.
-
-## EMQX auth (Contract ④ — per-device serial+token)
-
-EMQX's HTTP auth/authz calls the backend's `/mqtt/auth` and `/mqtt/acl`
-endpoints (`src/modules/mqtt-auth`). Two config files:
-
-- `emqx/emqx.conf` — backend runs on the host (`http://host.docker.internal:3000`).
-- `emqx/emqx.container.conf` — backend is the `api` service in the same
-  network (`http://api:3000`). **Use this one in Coolify**: mount it as
-  `/opt/emqx/etc/emqx.conf`.
-
-First boot imports the file's `authentication`/`authorization` into EMQX's
-runtime store — a later plain restart won't re-read it, so recreate the
-`emqx` volume if you change these URLs post-deploy. EMQX may log `econnrefused`
-for its auth webhook until `api` is up; the backend's MQTT client reconnects
-on its own within seconds.
-
-## API env (Coolify)
-
-```
-NODE_ENV=production
-PORT=3000
-APP_URL=https://api.yourdomain.com
-FRONTEND_URL=https://app.yourdomain.com
-CORS_ORIGINS=https://app.yourdomain.com
-DATABASE_URL=postgresql://…
-REDIS_URL=redis://redis:6379
-S3_ENDPOINT=http://minio:9000
-S3_ACCESS_KEY_ID=…
-S3_SECRET_ACCESS_KEY=…
-S3_BUCKET=tokinomo
-S3_FORCE_PATH_STYLE=true
-MQTT_URL=mqtt://emqx:1883
-# Backend's own superuser credential for EMQX (see src/modules/mqtt-auth) —
-# devices authenticate separately with serial+provisionToken, not this.
-MQTT_USERNAME=tokinomo-backend
-MQTT_PASSWORD=<long-random>
-BETTER_AUTH_SECRET=<long-random>
-BETTER_AUTH_URL=https://app.yourdomain.com
-RESEND_API_KEY=…
-RESEND_FROM_EMAIL=Tokinomo <noreply@yourdomain.com>
-```
-
-`BETTER_AUTH_URL` must be the **public frontend origin** when the web app
-proxies `/api/auth/*` (same pattern as local `:3001`).
-
-## Web env (Coolify)
-
-Build args + runtime:
-
-```
-NEXT_PUBLIC_APP_URL=https://app.yourdomain.com
-NEXT_PUBLIC_API_URL=https://api.yourdomain.com
-```
-
-Traefik / Coolify: point `app.` → web:3001, `api.` → api:3000.
-Web rewrites `/api/auth/*` and `/api/be/*` to `NEXT_PUBLIC_API_URL`.
-
-## After first deploy
-
-The `api` container runs `prisma migrate deploy` on boot (`scripts/start.sh`),
-so an empty database is migrated automatically. Then seed the platform owner:
-
+## 7. First run
+In Coolify's terminal for the `api` service (the image has no pnpm):
 ```bash
-# inside api container (or one-off job) — the runtime image has no pnpm
-node_modules/.bin/tsx prisma/seed-platform.ts
+node_modules/.bin/tsx prisma/seed-platform.ts          # creates the platform owner from PLATFORM_EMAIL/PASSWORD
+node_modules/.bin/tsx scripts/storage-check.ts         # R2 reachable from the server, 4x PASS
 ```
+Log in at `https://app.<domain>` and change the password.
 
-Default seed: `admin@baliyo.ventures` / `***REMOVED***` — **set
-`PLATFORM_EMAIL` / `PLATFORM_PASSWORD` for any public deploy.** Also change
-every other dev default before going public: Postgres `tokinomo/tokinomo`,
-MinIO `tokinomo/***REMOVED***`, EMQX dashboard `admin/public`.
+## 8. Verify (definition of done)
+From your laptop (needs `pnpm install` in `tokinomo-backend` and `tokinomo-frontend`):
+```bash
+API_URL=https://api.<domain> APP_URL=https://app.<domain> MQTT_URL=mqtts://mqtt.<domain>:8883 \
+PLATFORM_EMAIL=<you> PLATFORM_PASSWORD='<password>' REQUIRE_EMAIL=1 node scripts/prod-smoke.mjs
+```
+It signs in through the web app, checks the cookie reaches the API host, opens the realtime socket, creates a
+throwaway tenant + device, logs the device into the **TLS** broker, uploads a 3.5 MB clip, pushes it,
+downloads it from the presigned URL, then archives the test tenant. All steps must pass (`REQUIRE_EMAIL=1`
+also proves Resend delivery — the welcome mail arrives at `you+smoke…@<domain>`).
+Then, from outside the server, only 22/80/443/8883 should answer
+(`nc -zv <ip> 5432 6379 9000 9001 18083` → all refused). Finally **reboot the VPS** and confirm everything
+comes back by itself, and do one **backup restore drill** (below) before real data goes in.
 
-Tenant creation emails the brand admin their credentials via Resend. If the
-mail provider fails (e.g. sending domain not yet verified) the tenant is still
-created and the API returns `emailSent: false` — hand the credentials over manually.
+## 9. Operating it
+- **Deploy a change:** push to `main` → the workflow builds → (webhook) Coolify redeploys. Manual: Coolify →
+  Redeploy (images use `pull_policy: always`).
+- **Roll back:** set `IMAGE_TAG=sha-<good commit>` in Coolify and redeploy.
+- **Backups:** the `backup` service dumps nightly (03:00 UTC, first one at start-up, keeps 14 days) to
+  `s3://<bucket>/backups/`. In its terminal: `backup.sh list`, `backup.sh once`. **Restore drill** (always into
+  an *empty* database, never the live one):
+  ```bash
+  # in the postgres service terminal: psql -U tokinomo -d postgres -c 'CREATE DATABASE restored'
+  RESTORE_DATABASE_URL=postgresql://tokinomo:<password>@postgres:5432/restored \
+    backup.sh restore backups/tokinomo-<timestamp>.sql.gz
+  ```
+- **EMQX dashboard / database admin** are loopback-only: `ssh -L 18083:127.0.0.1:18083 root@<ip>` then
+  http://localhost:18083 (user `admin`, password = the generated `SERVICE_PASSWORD_64_EMQXDASHBOARD`).
+- **Secrets:** all generated or set in Coolify; rotate by editing there and redeploying. Never reuse local dev values.
+- **Tenant emails:** if the mail provider fails, the tenant is still created and the API returns `emailSent:false`.
 
-## Smoke test (no hardware)
+## 10. Local development and rehearsal
+- Day to day: `tokinomo-backend/docker-compose.yml` (infra) + `pnpm start:dev` / `pnpm dev`.
+- Production rehearsal on your machine (builds the images from source, throwaway MinIO instead of R2):
+  `docker compose -p tokinomo-prodtest --env-file <rehearsal.env> -f docker-compose.prod.yml -f docker-compose.prod.local.yml up -d --build`
+  — see the header of `docker-compose.prod.local.yml`.
+- EMQX config files: `emqx/emqx.conf` (backend on the host) vs `emqx/emqx.container.conf` (backend is the
+  `api` service — used in production). EMQX reads the auth URLs only on the first boot of its data volume.
 
-1. Login platform → create tenant (GROWTH)
-2. `/admin/devices` → provision serial → assign tenant → **Simulate loop**
-3. Open `/app/{slug}` → overview/analytics show events
-4. Upload WAV → Push → ack
-5. Invite ≤ 2 extra members on `/users`
+## 11. After hosting: firmware (not done yet)
+The standalone hardware loop in `esp_audio/` doesn't use the network. To connect devices:
+- `mqtt_ctl.c` sets only the broker URI and credentials — for `mqtts://` it needs the certificate bundle
+  (`.broker.verification.crt_bundle_attach = esp_crt_bundle_attach`).
+- TLS verification needs **correct wall-clock time**: start SNTP and wait for a valid time before the first MQTT /
+  HTTPS connection, or every handshake fails with "certificate not yet valid".
+- Per device you flash: Wi-Fi, broker `mqtts://mqtt.<domain>:8883`, serial, provisionToken, tenantId, deviceId
+  (from `POST /devices/provision` + assign).
+
+## 12. Known gaps
+- Single server = single point of failure; acceptable for a pilot because of the backups.
+- `team/BACKEND_ARCHITECTURE.md` mentions Postgres RLS and Timescale migrations that don't exist; tenant isolation
+  is enforced in application code (unit-tested). Plain Postgres 16 is all production needs.
+- Hostinger promo prices renew higher; longer prepaid terms are cheaper.
+- GitHub Actions are pinned to major versions (`@v4`, `@v3`, `@v6`), not commit SHAs.
