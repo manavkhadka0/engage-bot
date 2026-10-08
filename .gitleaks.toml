@@ -1,0 +1,57 @@
+title = "Engage Bot secret scanning"
+
+# Start from gitleaks' built-in rules (provider tokens, private keys, ...) and add
+# the two patterns that actually leaked here and that format-based rules miss:
+#   1. credentials hard-coded in firmware C sources (WiFi password, MQTT token)
+#   2. literal passwords in compose/env/config files
+# Secrets belong in untracked files (.env, esp_audio/main/secrets.h) — see SECURITY.md.
+[extend]
+useDefault = true
+
+[[rules]]
+id = "firmware-hardcoded-credential"
+description = "WiFi / MQTT / API credential hard-coded in C/C++ source"
+regex = '''(?i)#\s*define\s+[A-Z0-9_]*(?:WIFI|WLAN|MQTT|BROKER|API|DEVICE|CLOUD)[A-Z0-9_]*(?:PASS|PASSWORD|PWD|TOKEN|SECRET|KEY)[A-Z0-9_]*\s+"([^"]{6,})"'''
+secretGroup = 1
+path = '''(?i)\.(c|cc|cpp|h|hpp|ino)$'''
+tags = ["firmware", "password"]
+
+[[rules]]
+id = "literal-password-in-config"
+description = "password / secret / token assigned a literal value in compose, env or config files"
+# Key must start at line start / whitespace / quote (so text inside ${VAR:?...} is ignored),
+# and the value must start on the same line (no spanning newlines onto the next key).
+regex = '''(?i)(?:^|[\s"'])[A-Z0-9_.-]*(?:password|passwd|secret|api_?key|token)[A-Z0-9_.-]*["']?[ \t]*[:=][ \t]*["']?([^\s"'$<{}#,;(]{4,})'''
+secretGroup = 1
+path = '''(?i)(\.ya?ml|\.env[^/]*|\.conf|\.hocon|\.toml|\.ini|\.sh|docker-compose[^/]*)$'''
+tags = ["password", "config"]
+
+[[rules]]
+id = "literal-cookie-in-conf"
+description = "node/erlang cookie hard-coded in an EMQX-style config"
+regex = '''(?im)^\s*cookie\s*=\s*"([^"]{6,})"'''
+secretGroup = 1
+path = '''(?i)\.(conf|hocon)$'''
+tags = ["config"]
+
+[allowlist]
+description = "documented placeholders, test fixtures, vendored/third-party content"
+paths = [
+  '''pnpm-lock\.yaml$''',
+  '''^\.claude/skills/''',
+  '''\.spec\.ts$''',
+  '''^\.gitleaks\.toml$''',
+]
+regexes = [
+  # obvious placeholders in docs/examples
+  '''(?i)(your|my)[-_ ]?(password|pass|token|ssid|secret)''',
+  '''(?i)change-?me''',
+  '''(?i)^your[-_ ]''',          # e.g. "your-wifi-password", "your-device-provision-token"
+  '''(?i)^(example|sample|dummy|fake|test)[-_.]''',
+  '''(?i)^(true|false|null|none|example|placeholder|required|generated|empty)$''',
+  # shell / compose variable references and template tokens are not literals
+  '''^\$''',
+  '''^\{\{''',
+  '''^<''',
+  '''(?i)^(process\.env|env\.|secrets\.)''',
+]
