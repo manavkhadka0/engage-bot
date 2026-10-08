@@ -1,7 +1,7 @@
 # ESP32 WAV Downloader & Player
 
 A small **ESP-IDF** firmware for the **ESP32** that, on boot, connects to WiFi, downloads a
-`.wav` file over HTTPS via MQTT-driven commands from the tokinomo backend, stores it in
+`.wav` file over HTTPS via MQTT-driven commands from the Engage Bot backend, stores it in
 on-board flash, and plays it out over **I2S** to a **MAX98357A** class-D amp. Authenticates
 to EMQX per-device (Contract ④) rather than connecting anonymously.
 

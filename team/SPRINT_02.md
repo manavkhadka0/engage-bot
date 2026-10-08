@@ -1,4 +1,4 @@
-# Sprint 02 — Tokinomo Pilot Readiness
+# Sprint 02 — Engage Bot Pilot Readiness
 
 **Dates:** Thursday, August 6 → Tuesday, August 11, 2026
 **Goal:** Everything except real presence-detection proven end-to-end —
@@ -26,7 +26,7 @@ dashboard's "send a real command" UI both build against it.
 
 ---
 
-## 1. Backend (`tokinomo-backend`) — do first
+## 1. Backend (`engage-bot-backend`) — do first
 
 Nothing here is hardware-blocked.
 
@@ -43,9 +43,9 @@ Nothing here is hardware-blocked.
       uncommitted so Frontend builds against a stable API.
 - [ ] **Flag for Electronics:** `MAX_AUDIO_BYTES` bumped 512KB→4MB in code, but
       CONTRACTS.md §③ still says ~512KB max — reconcile.
-- [ ] Confirm `tokinomo-backend/Dockerfile` builds clean (Coolify smoke test).
+- [ ] Confirm `engage-bot-backend/Dockerfile` builds clean (Coolify smoke test).
 
-## 2. Frontend (`tokinomo-frontend`) — do second
+## 2. Frontend (`engage-bot-frontend`) — do second
 
 Also fully decoupled from hardware — test via Simulate.
 

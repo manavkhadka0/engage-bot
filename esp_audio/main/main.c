@@ -404,7 +404,7 @@ void app_main(void)
 {
     printf("\n");
     printf("==========================================\n");
-    printf(" TOKINOMO — standalone hardware loop test\n");
+    printf(" ENGAGE BOT — standalone hardware loop test\n");
     printf(" (no WiFi / MQTT / backend in this build)\n");
     printf("==========================================\n");
 

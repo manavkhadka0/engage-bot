@@ -13,7 +13,7 @@ typedef void (*mqtt_ctl_audio_update_cb_t)(const char *cmd_id, const char *url);
  * Publishes {"status":"online"} to the `status` channel once connected.
  *
  * username/password are the device's own serial + provisionToken (Contract
- * ④ — see tokinomo-backend/src/modules/mqtt-auth). EMQX now runs a
+ * ④ — see engage-bot-backend/src/modules/mqtt-auth). EMQX now runs a
  * per-device HTTP auth check and rejects anonymous connections outright, so
  * these are required, not optional. */
 esp_err_t mqtt_ctl_start(const char *broker_uri,

@@ -10,7 +10,7 @@
 #   COOLIFY_API_TOKEN        a Coolify API token (Keys & Tokens)
 #
 # After the FIRST successful run, GHCR packages are private. Either make each of
-# tokinomo-api / tokinomo-web / tokinomo-backup public (Package settings → Change
+# engage-bot-api / engage-bot-web / engage-bot-backup public (Package settings → Change
 # visibility; the images contain no secrets), or `docker login ghcr.io` on the
 # server with a token that has read:packages.
 
@@ -20,8 +20,8 @@ on:
   push:
     branches: [main]
     paths:
-      - "tokinomo-backend/**"
-      - "tokinomo-frontend/**"
+      - "engage-bot-backend/**"
+      - "engage-bot-frontend/**"
       - ".github/workflows/build-images.yml"
   workflow_dispatch:
 
@@ -41,15 +41,15 @@ jobs:
       matrix:
         include:
           - name: api
-            context: tokinomo-backend
+            context: engage-bot-backend
             build_args: ""
           - name: web
-            context: tokinomo-frontend
+            context: engage-bot-frontend
             build_args: |
               NEXT_PUBLIC_APP_URL=${{ vars.NEXT_PUBLIC_APP_URL }}
               NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
           - name: backup
-            context: tokinomo-backend/backup
+            context: engage-bot-backend/backup
             build_args: ""
     steps:
       - uses: actions/checkout@v4
@@ -72,7 +72,7 @@ jobs:
         id: img
         run: |
           owner="${GITHUB_REPOSITORY_OWNER,,}"
-          echo "base=ghcr.io/${owner}/tokinomo-${{ matrix.name }}" >> "$GITHUB_OUTPUT"
+          echo "base=ghcr.io/${owner}/engage-bot-${{ matrix.name }}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 

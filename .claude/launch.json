@@ -6,7 +6,7 @@
       "runtimeExecutable": "bash",
       "runtimeArgs": [
         "-c",
-        "cd tokinomo-backend && PORT=3011 APP_URL=http://localhost:3011 S3_ENDPOINT=http://localhost:9000 pnpm start:dev"
+        "cd engage-bot-backend && PORT=3011 APP_URL=http://localhost:3011 S3_ENDPOINT=http://localhost:9000 pnpm start:dev"
       ],
       "port": 3011
     },
@@ -15,7 +15,7 @@
       "runtimeExecutable": "bash",
       "runtimeArgs": [
         "-c",
-        "cd tokinomo-frontend && NEXT_PUBLIC_API_URL=http://localhost:3011 pnpm dev"
+        "cd engage-bot-frontend && NEXT_PUBLIC_API_URL=http://localhost:3011 pnpm dev"
       ],
       "port": 3001
     }

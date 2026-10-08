@@ -108,7 +108,7 @@ already been decided. This also front-loads all the toolchain pain onto a day wi
 hardware risk.
 
 ### How
-1. Read, in this order: [`ARCHITECTURE.md`](ARCHITECTURE.md) (what Tokinomo is, end to
+1. Read, in this order: [`ARCHITECTURE.md`](ARCHITECTURE.md) (what Engage Bot is, end to
    end), [`ELECTRONICS_ARCHITECTURE.md`](ELECTRONICS_ARCHITECTURE.md) (the electronics
    team's plan — remember it's stale on board/sensor, current doc corrects it),
    [`esp_audio/README.md`](../esp_audio/README.md) (the actual working firmware +

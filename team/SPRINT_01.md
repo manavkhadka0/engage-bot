@@ -1,4 +1,4 @@
-# Sprint 01 — Tokinomo Prototype
+# Sprint 01 — Engage Bot Prototype
 
 **Dates:** Sunday, July 26 → Friday, July 31, 2026
 **Goal:** One fully working prototype (detect → dwell → move → speak → logged)

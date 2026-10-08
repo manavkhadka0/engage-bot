@@ -1,7 +1,7 @@
-# Tokinomo — End-to-End Test Checklist
+# Engage Bot — End-to-End Test Checklist
 
 **Stack:** Frontend `:3001` · Backend `:3000` · Docker (Postgres, Redis, MinIO, EMQX)  
-**Platform seed:** `admin@baliyo.ventures` / `***REMOVED***`  
+**Platform seed:** `PLATFORM_EMAIL` / `PLATFORM_PASSWORD` from `engage-bot-backend/.env`  
 **Firmware:** not required — use **Simulate** on `/admin/devices`
 
 ---
@@ -9,11 +9,11 @@
 ## 0. Boot
 
 ```bash
-cd tokinomo-backend && docker compose up -d
+cd engage-bot-backend && pnpm setup:env && docker compose up -d
 pnpm prisma migrate deploy && pnpm seed:platform
 pnpm start:dev
 
-cd ../tokinomo-frontend && pnpm dev
+cd ../engage-bot-frontend && pnpm dev
 ```
 
 - [ ] Docker: postgres, redis, minio, emqx healthy
