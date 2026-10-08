@@ -1,0 +1,19 @@
+Correct this electrical wiring sheet. Preserve title, four-panel layout and bottom GPIO tables. CRITICAL the original has dangerous errors: panel1 shorts both positives to GND, panel2 draws motor capacitor in series, panel4 bypass capacitors terminate on 3V3. Remove ALL existing wire drawings inside panels 1,2,4 and redraw using the following simpler topology. No decorative extra lines.
+Panel1: replace wire diagram with a clear connection-list diagram: six independent horizontal rows, source box -> destination box, NO vertical lines connecting rows:
+"Supply A +5V" -> "ESP USB power + AMP VIN (separate branches)"
+"Supply A negative" -> "Common GND junction"
+"Supply B positive" -> "TB6612 VM only"
+"Supply B negative" -> "TB6612 GND (short thick wire)"
+"TB6612 GND" -> "Common GND junction (separate branch)"
+"ESP GND + AMP GND" -> "Common GND junction"
+Retain notes: Supply A regulated 5V; Supply B battery/floating supply matching motor rated voltage. Never join positive supplies. No depiction of shared vertical rail whatsoever.
+Panel2: two uninterrupted horizontal wires from AO1 and AO2 to motor terminals. Capacitor is a VERTICAL branch BETWEEN these horizontal wires: wire from AO1 rail downward to upper horizontal capacitor plate; GAP; lower horizontal capacitor plate then wire downward to AO2 rail. Junction dots at each rail. Label 100nF ceramic (104), solder at motor. Neither main motor wire interrupted. No diode or ground.
+Panel3 already correct preserve it.
+Panel4: replace complex diagram with simple connection rows:
+"+5V AUDIO from Supply A" -> "MAX98357A VIN"
+"Common GND" -> "MAX98357A GND"
+"ESP 3V3" -> "MAX98357A SD"
+"MAX98357A SPK+" -> "Speaker terminal 1"
+"MAX98357A SPK−" -> "Speaker terminal 2"
+Below these rows a SEPARATE clearly isolated mini-schematic of bypass capacitors: horizontal RED top rail labeled VIN (+5V), horizontal BLACK bottom rail labeled GND. Two vertical parallel capacitor branches between rails, labeled 10µF (plus upper) and 100nF. No links to the SD row. If space is tight use text "10µF (+ to VIN, − to GND) and 100nF across VIN–GND; check module capacitors". Retain note remove old 3V3 to VIN wire; neither speaker terminal to GND.
+Accuracy takes priority. Make clean legible high resolution.
