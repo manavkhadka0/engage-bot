@@ -5,12 +5,14 @@
 # swaps the https URLs for http://<HOST_IP>. HOST_IP must be this machine's LAN
 # IP: the browser AND the web container both have to reach the API at one URL.
 #
-#   docker compose -p tokinomo-prodtest --env-file <rehearsal.env> \
+#   docker compose -p engage-bot-prodtest --env-file <rehearsal.env> \
 #     -f docker-compose.prod.yml -f docker-compose.prod.local.yml up -d --build
 #
 # <rehearsal.env> needs every variable listed in .env.prod.example plus the
 # SERVICE_PASSWORD_64_{POSTGRES,REDIS,MQTT,AUTH,EMQXCOOKIE,EMQXDASHBOARD}
-# values Coolify would generate (any random strings), and HOST_IP.
+# values Coolify would generate (any random strings), HOST_IP, and the two
+# throwaway MinIO credentials LOCAL_S3_ACCESS_KEY / LOCAL_S3_SECRET_KEY
+# (any random strings — e.g. `openssl rand -hex 16`).
 # Stop any other stack using ports 1883/3000/3003/5432/9000 first.
 
 services:
@@ -20,8 +22,8 @@ services:
 
   api:
     build:
-      context: ./tokinomo-backend
-    image: tokinomo-api:local
+      context: ./engage-bot-backend
+    image: engage-bot-api:local
     pull_policy: never
     ports:
       - "3000:3000"
@@ -37,25 +39,25 @@ services:
       S3_ENDPOINT: http://minio:9000
       S3_PUBLIC_ENDPOINT: http://${HOST_IP}:9000
       S3_REGION: us-east-1
-      S3_ACCESS_KEY_ID: tokinomo
-      S3_SECRET_ACCESS_KEY: ***REMOVED***
+      S3_ACCESS_KEY_ID: ${LOCAL_S3_ACCESS_KEY:?set LOCAL_S3_ACCESS_KEY in the rehearsal env}
+      S3_SECRET_ACCESS_KEY: ${LOCAL_S3_SECRET_KEY:?set LOCAL_S3_SECRET_KEY in the rehearsal env}
       S3_FORCE_PATH_STYLE: "true"
 
   web:
     build:
-      context: ./tokinomo-frontend
+      context: ./engage-bot-frontend
       args:
         NEXT_PUBLIC_APP_URL: http://${HOST_IP}:3003
         NEXT_PUBLIC_API_URL: http://${HOST_IP}:3000
-    image: tokinomo-web:local
+    image: engage-bot-web:local
     pull_policy: never
     ports:
       - "3003:3001" # 3003 on the host: 3001 is often taken by a dev server
 
   backup:
     build:
-      context: ./tokinomo-backend/backup
-    image: tokinomo-backup:local
+      context: ./engage-bot-backend/backup
+    image: engage-bot-backup:local
     pull_policy: never
     depends_on:
       minio:
@@ -63,8 +65,8 @@ services:
     environment:
       S3_ENDPOINT: http://minio:9000
       S3_REGION: us-east-1
-      S3_ACCESS_KEY_ID: tokinomo
-      S3_SECRET_ACCESS_KEY: ***REMOVED***
+      S3_ACCESS_KEY_ID: ${LOCAL_S3_ACCESS_KEY}
+      S3_SECRET_ACCESS_KEY: ${LOCAL_S3_SECRET_KEY}
 
   minio:
     image: minio/minio:latest # cached locally only; see docker-compose.yml warning
@@ -72,10 +74,10 @@ services:
     ports:
       - "9000:9000"
     environment:
-      MINIO_ROOT_USER: tokinomo
-      MINIO_ROOT_PASSWORD: ***REMOVED***
+      MINIO_ROOT_USER: ${LOCAL_S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${LOCAL_S3_SECRET_KEY}
     volumes:
-      - tokinomo_prodtest_minio:/data
+      - engage_bot_prodtest_minio:/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 10s
@@ -88,13 +90,16 @@ services:
     depends_on:
       minio:
         condition: service_healthy
+    environment:
+      LOCAL_S3_ACCESS_KEY: ${LOCAL_S3_ACCESS_KEY}
+      LOCAL_S3_SECRET_KEY: ${LOCAL_S3_SECRET_KEY}
     entrypoint: >
       /bin/sh -c "
-      mc alias set local http://minio:9000 tokinomo ***REMOVED***;
-      mc mb --ignore-existing local/tokinomo;
+      mc alias set local http://minio:9000 $$LOCAL_S3_ACCESS_KEY $$LOCAL_S3_SECRET_KEY;
+      mc mb --ignore-existing local/engage-bot;
       exit 0;
       "
     restart: "no"
 
 volumes:
-  tokinomo_prodtest_minio:
+  engage_bot_prodtest_minio:

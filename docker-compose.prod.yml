@@ -2,7 +2,7 @@
 #
 # Images are built by GitHub Actions (.github/workflows/build-images.yml) and
 # pulled from GHCR, so the VPS never builds anything. Postgres, Redis, EMQX
-# and the three Tokinomo images all live in this one project, so service names
+# and the three Engage Bot images all live in this one project, so service names
 # (postgres, redis, emqx, api, web) resolve between containers and
 # emqx/emqx.container.conf can keep calling http://api:3000.
 #
@@ -30,15 +30,15 @@ services:
     restart: unless-stopped
     logging: *logging
     environment:
-      POSTGRES_USER: tokinomo
+      POSTGRES_USER: engage_bot
       POSTGRES_PASSWORD: ${SERVICE_PASSWORD_64_POSTGRES}
-      POSTGRES_DB: tokinomo
+      POSTGRES_DB: engage_bot
     volumes:
-      - tokinomo_pg_data:/var/lib/postgresql/data
+      - engage_bot_pg_data:/var/lib/postgresql/data
     ports:
       - "127.0.0.1:5432:5432" # admin access via `ssh -L 5432:127.0.0.1:5432 <server>`
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U tokinomo -d tokinomo"]
+      test: ["CMD-SHELL", "pg_isready -U engage_bot -d engage_bot"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -51,7 +51,7 @@ services:
       REDIS_PASSWORD: ${SERVICE_PASSWORD_64_REDIS}
     command: ["sh", "-c", 'exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"']
     volumes:
-      - tokinomo_redis_data:/data
+      - engage_bot_redis_data:/data
     healthcheck:
       test: ["CMD-SHELL", 'redis-cli -a "$$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG']
       interval: 5s
@@ -63,15 +63,15 @@ services:
     restart: unless-stopped
     logging: *logging
     environment:
-      EMQX_NAME: tokinomo
-      # Environment variables override emqx.container.conf, so the committed
-      # dev cookie / default dashboard password are never what runs in prod.
+      EMQX_NAME: engagebot
+      # The node cookie and dashboard password exist only as these generated secrets
+      # (emqx.container.conf deliberately contains neither).
       EMQX_NODE__COOKIE: ${SERVICE_PASSWORD_64_EMQXCOOKIE}
       EMQX_DASHBOARD__DEFAULT_USERNAME: admin
       EMQX_DASHBOARD__DEFAULT_PASSWORD: ${SERVICE_PASSWORD_64_EMQXDASHBOARD}
     volumes:
-      - tokinomo_emqx_data:/opt/emqx/data
-      - ./tokinomo-backend/emqx/emqx.container.conf:/opt/emqx/etc/emqx.conf:ro
+      - engage_bot_emqx_data:/opt/emqx/data
+      - ./engage-bot-backend/emqx/emqx.container.conf:/opt/emqx/etc/emqx.conf:ro
     ports:
       - "127.0.0.1:18083:18083" # dashboard via `ssh -L 18083:127.0.0.1:18083 <server>`
     labels:
@@ -79,11 +79,11 @@ services:
       # entrypoint (port 8883 — add it to Coolify's proxy config, see
       # team/COOLIFY_DEPLOY.md) and forwards plain MQTT to EMQX on 1883.
       - traefik.enable=true
-      - traefik.tcp.routers.tokinomo-mqtts.rule=HostSNI(`${MQTT_DOMAIN:?set MQTT_DOMAIN, e.g. mqtt.example.com}`)
-      - traefik.tcp.routers.tokinomo-mqtts.entrypoints=mqtts
-      - traefik.tcp.routers.tokinomo-mqtts.tls=true
-      - traefik.tcp.routers.tokinomo-mqtts.tls.certresolver=letsencrypt
-      - traefik.tcp.services.tokinomo-mqtts.loadbalancer.server.port=1883
+      - traefik.tcp.routers.engage-bot-mqtts.rule=HostSNI(`${MQTT_DOMAIN:?set MQTT_DOMAIN, e.g. mqtt.example.com}`)
+      - traefik.tcp.routers.engage-bot-mqtts.entrypoints=mqtts
+      - traefik.tcp.routers.engage-bot-mqtts.tls=true
+      - traefik.tcp.routers.engage-bot-mqtts.tls.certresolver=letsencrypt
+      - traefik.tcp.services.engage-bot-mqtts.loadbalancer.server.port=1883
     healthcheck:
       test: ["CMD", "emqx", "ctl", "status"]
       interval: 10s
@@ -92,7 +92,7 @@ services:
       start_period: 20s
 
   api:
-    image: ${IMAGE_PREFIX:-ghcr.io/manavkhadka0/tokinomo}-api:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-ghcr.io/manavkhadka0/engage-bot}-api:${IMAGE_TAG:-latest}
     pull_policy: always
     restart: unless-stopped
     logging: *logging
@@ -117,20 +117,20 @@ services:
       # is set via app.<domain> but must also reach api.<domain> for the
       # realtime websocket. Without it live dashboards never update.
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:?set COOKIE_DOMAIN to the parent domain with a leading dot, e.g. .example.com}
-      DATABASE_URL: postgresql://tokinomo:${SERVICE_PASSWORD_64_POSTGRES}@postgres:5432/tokinomo?schema=public
+      DATABASE_URL: postgresql://engage_bot:${SERVICE_PASSWORD_64_POSTGRES}@postgres:5432/engage_bot?schema=public
       REDIS_URL: redis://:${SERVICE_PASSWORD_64_REDIS}@redis:6379
       S3_ENDPOINT: ${S3_ENDPOINT:?set S3_ENDPOINT (R2 example https://<account>.r2.cloudflarestorage.com)}
       S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:?set S3_PUBLIC_ENDPOINT (for R2 the same value as S3_ENDPOINT)}
       S3_REGION: ${S3_REGION:-auto}
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?set S3_ACCESS_KEY_ID}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?set S3_SECRET_ACCESS_KEY}
-      S3_BUCKET: ${S3_BUCKET:-tokinomo}
+      S3_BUCKET: ${S3_BUCKET:-engage-bot}
       S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
       MQTT_URL: mqtt://emqx:1883
-      MQTT_USERNAME: tokinomo-backend
+      MQTT_USERNAME: engage-bot-backend
       MQTT_PASSWORD: ${SERVICE_PASSWORD_64_MQTT}
       RESEND_API_KEY: ${RESEND_API_KEY:?set RESEND_API_KEY}
-      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:?set RESEND_FROM_EMAIL, e.g. Tokinomo <noreply@example.com>}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:?set RESEND_FROM_EMAIL, e.g. Engage Bot <noreply@example.com>}
       LEADS_EMAIL: ${LEADS_EMAIL:?set LEADS_EMAIL (where demo requests are sent)}
       # Used only by the one-time seed (node_modules/.bin/tsx prisma/seed-platform.ts).
       PLATFORM_EMAIL: ${PLATFORM_EMAIL:?set PLATFORM_EMAIL}
@@ -146,7 +146,7 @@ services:
   web:
     # NEXT_PUBLIC_APP_URL / NEXT_PUBLIC_API_URL are baked into this image when
     # GitHub Actions builds it (repository variables) — a domain change needs a rebuild.
-    image: ${IMAGE_PREFIX:-ghcr.io/manavkhadka0/tokinomo}-web:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-ghcr.io/manavkhadka0/engage-bot}-web:${IMAGE_TAG:-latest}
     pull_policy: always
     restart: unless-stopped
     logging: *logging
@@ -163,7 +163,7 @@ services:
       start_period: 30s
 
   backup:
-    image: ${IMAGE_PREFIX:-ghcr.io/manavkhadka0/tokinomo}-backup:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-ghcr.io/manavkhadka0/engage-bot}-backup:${IMAGE_TAG:-latest}
     pull_policy: always
     restart: unless-stopped
     logging: *logging
@@ -172,17 +172,17 @@ services:
       api:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://tokinomo:${SERVICE_PASSWORD_64_POSTGRES}@postgres:5432/tokinomo
+      DATABASE_URL: postgresql://engage_bot:${SERVICE_PASSWORD_64_POSTGRES}@postgres:5432/engage_bot
       S3_ENDPOINT: ${S3_ENDPOINT}
       S3_REGION: ${S3_REGION:-auto}
       S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
-      S3_BUCKET: ${S3_BUCKET:-tokinomo}
+      S3_BUCKET: ${S3_BUCKET:-engage-bot}
       BACKUP_PREFIX: backups
       BACKUP_HOUR_UTC: ${BACKUP_HOUR_UTC:-3}
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
 
 volumes:
-  tokinomo_pg_data:
-  tokinomo_redis_data:
-  tokinomo_emqx_data:
+  engage_bot_pg_data:
+  engage_bot_redis_data:
+  engage_bot_emqx_data:

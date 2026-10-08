@@ -1,4 +1,4 @@
-# Deploying Tokinomo — Hostinger VPS + Coolify + GitHub-built images
+# Deploying Engage Bot — Hostinger VPS + Coolify + GitHub-built images
 
 How the pieces fit:
 
@@ -53,20 +53,20 @@ Repo → Settings → Secrets and variables → Actions:
   (baked into the web image — changing the domain later means re-running the workflow).
 - **Secrets** (optional, auto-redeploy): `COOLIFY_DEPLOY_WEBHOOK` (the resource's Deploy Webhook URL) and
   `COOLIFY_API_TOKEN` (Coolify → Keys & Tokens).
-- Run **Actions → Build images → Run workflow**. It builds `tokinomo-api`, `tokinomo-web`, `tokinomo-backup`
+- Run **Actions → Build images → Run workflow**. It builds `engage-bot-api`, `engage-bot-web`, `engage-bot-backup`
   (linux/amd64) and pushes `:latest` and `:sha-<commit>` to `ghcr.io/<owner>/`.
   It refuses to build the web image if the two variables are missing or not `https://`.
 - After the first run, make each of the 3 packages **public** (Package settings → Change visibility; they
   contain no secrets) — or `docker login ghcr.io` on the server with a `read:packages` token.
 
 ## 4. Cloudflare R2 (audio + backups)
-1. R2 → **Create bucket** `tokinomo`. (Optional: Settings → Object lifecycle → expire prefix `backups/` after
+1. R2 → **Create bucket** `engage-bot`. (Optional: Settings → Object lifecycle → expire prefix `backups/` after
    30 days; the backup job already prunes to 14 days itself.)
 2. R2 → **Manage API tokens** → Object Read & Write, scoped to that bucket. Copy Access Key ID, Secret, and
    your Account ID.
 3. You'll paste these into Coolify in §6 (`S3_ENDPOINT=S3_PUBLIC_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com`,
    `S3_REGION=auto`). Verify them *before* deploying, from your laptop with the same variables in
-   `tokinomo-backend/.env`: `pnpm storage:check` — all four lines must `PASS`.
+   `engage-bot-backend/.env`: `pnpm storage:check` — all four lines must `PASS`.
 
 Free-tier limits (at time of writing: 10 GB storage, 1M writes + 10M reads per month, no egress fees) — check
 Cloudflare's pricing page. **Backblaze B2** works the same way: bucket-scoped Application Key,
@@ -77,12 +77,12 @@ from the ESP32 — R2/B2 are HTTPS, which the firmware downloader handles (Mozil
 No bucket CORS is needed (devices download, browsers don't).
 
 > The `minio/minio` image is no longer pullable from Docker Hub or quay.io (checked 2026-10-08, even `latest`).
-> MinIO exists only for local dev (`tokinomo-backend/docker-compose.yml`, works while the image is cached) —
+> MinIO exists only for local dev (`engage-bot-backend/docker-compose.yml`, works while the image is cached) —
 > **never deploy it.**
 
 ## 5. Resend
 Add your domain → add the DNS records it shows → wait for "Verified" → create an API key. Set
-`RESEND_FROM_EMAIL=Tokinomo <noreply@<domain>>`.
+`RESEND_FROM_EMAIL=Engage Bot <noreply@<domain>>`.
 
 ## 6. Coolify
 1. **New resource → Docker Compose** (public GitHub repo, branch `main`). Base directory `/`, compose file
@@ -117,7 +117,7 @@ node_modules/.bin/tsx scripts/storage-check.ts         # R2 reachable from the s
 Log in at `https://app.<domain>` and change the password.
 
 ## 8. Verify (definition of done)
-From your laptop (needs `pnpm install` in `tokinomo-backend` and `tokinomo-frontend`):
+From your laptop (needs `pnpm install` in `engage-bot-backend` and `engage-bot-frontend`):
 ```bash
 API_URL=https://api.<domain> APP_URL=https://app.<domain> MQTT_URL=mqtts://mqtt.<domain>:8883 \
 PLATFORM_EMAIL=<you> PLATFORM_PASSWORD='<password>' REQUIRE_EMAIL=1 node scripts/prod-smoke.mjs
@@ -138,9 +138,9 @@ comes back by itself, and do one **backup restore drill** (below) before real da
   `s3://<bucket>/backups/`. In its terminal: `backup.sh list`, `backup.sh once`. **Restore drill** (always into
   an *empty* database, never the live one):
   ```bash
-  # in the postgres service terminal: psql -U tokinomo -d postgres -c 'CREATE DATABASE restored'
-  RESTORE_DATABASE_URL=postgresql://tokinomo:<password>@postgres:5432/restored \
-    backup.sh restore backups/tokinomo-<timestamp>.sql.gz
+  # in the postgres service terminal: psql -U engage_bot -d postgres -c 'CREATE DATABASE restored'
+  RESTORE_DATABASE_URL=postgresql://engage_bot:<password>@postgres:5432/restored \
+    backup.sh restore backups/engage-bot-<timestamp>.sql.gz
   ```
 - **EMQX dashboard / database admin** are loopback-only: `ssh -L 18083:127.0.0.1:18083 root@<ip>` then
   http://localhost:18083 (user `admin`, password = the generated `SERVICE_PASSWORD_64_EMQXDASHBOARD`).
@@ -148,9 +148,9 @@ comes back by itself, and do one **backup restore drill** (below) before real da
 - **Tenant emails:** if the mail provider fails, the tenant is still created and the API returns `emailSent:false`.
 
 ## 10. Local development and rehearsal
-- Day to day: `tokinomo-backend/docker-compose.yml` (infra) + `pnpm start:dev` / `pnpm dev`.
+- Day to day: `engage-bot-backend/docker-compose.yml` (infra) + `pnpm start:dev` / `pnpm dev`.
 - Production rehearsal on your machine (builds the images from source, throwaway MinIO instead of R2):
-  `docker compose -p tokinomo-prodtest --env-file <rehearsal.env> -f docker-compose.prod.yml -f docker-compose.prod.local.yml up -d --build`
+  `docker compose -p engage-bot-prodtest --env-file <rehearsal.env> -f docker-compose.prod.yml -f docker-compose.prod.local.yml up -d --build`
   — see the header of `docker-compose.prod.local.yml`.
 - EMQX config files: `emqx/emqx.conf` (backend on the host) vs `emqx/emqx.container.conf` (backend is the
   `api` service — used in production). EMQX reads the auth URLs only on the first boot of its data volume.

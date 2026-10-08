@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * End-to-end smoke test for a deployed Tokinomo stack, acting like the browser and
+ * End-to-end smoke test for a deployed Engage Bot stack, acting like the browser and
  * a device would: sign in through the web app, open the realtime socket, create a
  * throwaway tenant + device, log the device into the MQTT broker, upload a ~3.5 MB
  * clip, push it, and download it from the presigned URL the device receives.
@@ -15,13 +15,13 @@
  * Optional: KEEP=1 skips archiving the test tenant; REQUIRE_EMAIL=1 makes a failed
  * welcome email a failure (otherwise it is only a warning).
  *
- * Needs `pnpm install` in tokinomo-backend (mqtt) and tokinomo-frontend (socket.io-client).
+ * Needs `pnpm install` in engage-bot-backend (mqtt) and engage-bot-frontend (socket.io-client).
  * Creates tenant "smoke-<id>" (soft-archived at the end) and one clip in storage.
  * The tenant's welcome email goes to PLATFORM_EMAIL via plus-addressing
  * (you+smoke<id>@domain), so it lands in your own inbox. Never prints secrets.
  */
 import { createRequire } from 'node:module';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -43,8 +43,8 @@ const KEEP = process.env.KEEP === '1';
 const REQUIRE_EMAIL = process.env.REQUIRE_EMAIL === '1';
 
 const requireFrom = (rel) => createRequire(path.resolve(here, rel));
-const mqtt = requireFrom('../tokinomo-backend/package.json')('mqtt');
-const { io } = requireFrom('../tokinomo-frontend/package.json')('socket.io-client');
+const mqtt = requireFrom('../engage-bot-backend/package.json')('mqtt');
+const { io } = requireFrom('../engage-bot-frontend/package.json')('socket.io-client');
 
 const results = [];
 const step = (name, ok, detail = '') => {
@@ -136,7 +136,7 @@ socket.close();
 const stamp = Date.now().toString(36);
 const [local, mailDomain] = EMAIL.split('@');
 r = await be('POST', '/tenants', {
-  body: { name: `Smoke ${stamp}`, slug: `smoke-${stamp}`, tier: 'GROWTH', adminName: 'Smoke Admin', adminEmail: `${local}+smoke${stamp}@${mailDomain}`, adminPassword: `***REMOVED***` },
+  body: { name: `Smoke ${stamp}`, slug: `smoke-${stamp}`, tier: 'GROWTH', adminName: 'Smoke Admin', adminEmail: `${local}+smoke${stamp}@${mailDomain}`, adminPassword: `Pw-${randomBytes(12).toString('base64url')}` },
 });
 const tenantId = r.json?.tenant?.id ?? r.json?.id;
 if (!step('create tenant', (r.status === 201 || r.status === 200) && !!tenantId, `HTTP ${r.status}`)) die(JSON.stringify(r.json));

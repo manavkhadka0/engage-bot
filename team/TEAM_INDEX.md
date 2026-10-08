@@ -1,4 +1,4 @@
-# Tokinomo — Team Handbook
+# Engage Bot — Team Handbook
 
 **For the build teams: Electronics · Backend · Frontend · Mechanical.**
 Everything you need to build the product lives here. (Business & pricing docs are

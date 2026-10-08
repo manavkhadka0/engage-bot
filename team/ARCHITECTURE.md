@@ -1,4 +1,4 @@
-# Tokinomo Platform — System Architecture
+# Engage Bot Platform — System Architecture
 
 **Status:** Proposed · **Date:** 26 Jul 2026 · **Owner:** Manav (Baliyo Ventures)
 **Scope:** Multi-tenant SaaS for a fleet of shelf-advertising robots.
@@ -33,10 +33,10 @@
 ```mermaid
 graph TB
     subgraph Field["🏬 Retail floor"]
-        DEV["Tokinomo device<br/>ESP32-S3 · mmWave · gear motor · LEDs · audio"]
+        DEV["Engage Bot device<br/>ESP32-S3 · mmWave · gear motor · LEDs · audio"]
     end
 
-    subgraph Cloud["☁️ Tokinomo Platform"]
+    subgraph Cloud["☁️ Engage Bot Platform"]
         BROKER["MQTT Broker<br/>(EMQX)"]
         API["Backend API + Workers<br/>(NestJS modular monolith)"]
         DB[("PostgreSQL<br/>+ TimescaleDB")]
@@ -681,6 +681,6 @@ services are already containerised.
 
 ---
 
-*Companion to [TOKINOMO_MASTER.md](TOKINOMO_MASTER.md) (product/business) and
+*Companion to [ENGAGE_BOT_MASTER.md](ENGAGE_BOT_MASTER.md) (product/business) and
 [ELECTRONICS_BOM.md](ELECTRONICS_BOM.md) (hardware). This file is the technical
 architecture of record.*

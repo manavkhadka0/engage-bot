@@ -14,11 +14,11 @@ web
 
 These two are not the same user at different screen sizes. Brand staff are non-technical and episodic; platform operators are technical and continuous.
 
-**Roles implemented:** platform — `PLATFORM_OWNER`, `PLATFORM_OPERATOR`; brand — `BRAND_ADMIN`, `BRAND_STAFF`, `BRAND_VIEWER` (`tokinomo-frontend/lib/roles.ts`). Brand roles are defined and carried in the session, but the console does not yet gate UI by them beyond user invitation.
+**Roles implemented:** platform — `PLATFORM_OWNER`, `PLATFORM_OPERATOR`; brand — `BRAND_ADMIN`, `BRAND_STAFF`, `BRAND_VIEWER` (`engage-bot-frontend/lib/roles.ts`). Brand roles are defined and carried in the session, but the console does not yet gate UI by them beyond user invitation.
 
 ## Product Purpose
 
-Tokinomo is a shelf-advertising robot plus the multi-tenant SaaS platform that runs it. The device grips a product on a retail shelf and makes it move, light up, and speak when a shopper lingers nearby.
+Engage Bot is a shelf-advertising robot plus the multi-tenant SaaS platform that runs it. The device grips a product on a retail shelf and makes it move, light up, and speak when a shopper lingers nearby.
 
 The platform exists to answer a strategic choice the team made deliberately: ship connected devices rather than "black boxes" we never see again. Each unit reports presence detections, dwell time, audio plays, and online/offline status over MQTT; audio can be pushed to any unit over the air. Success means a brand can see its fleet working and renew on evidence, and Baliyo learns a unit is down before the client complains.
 
@@ -26,7 +26,7 @@ The platform exists to answer a strategic choice the team made deliberately: shi
 
 Presence sensing is **mmWave, not a camera** — it detects a *stationary* shopper and measures dwell time, which is what makes an interaction adaptive rather than a motion tripwire, and it carries no camera-privacy burden in a retail aisle.
 
-The second differentiator is the software layer itself: a comparable vendor sells a shelf gadget as a one-time hardware transaction. Tokinomo is sold as a measured, remotely-updatable fleet, so the same platform onboards one brand today and others later.
+The second differentiator is the software layer itself: a comparable vendor sells a shelf gadget as a one-time hardware transaction. Engage Bot is sold as a measured, remotely-updatable fleet, so the same platform onboards one brand today and others later.
 
 ## Operating Context
 
@@ -62,7 +62,7 @@ The second differentiator is the software layer itself: a comparable vendor sell
 
 ## Brand Commitments
 
-- Product name: **Tokinomo**. Built by **Baliyo Ventures**, under its Flexi product line. Baliyo is named as the maker on the public site.
+- Product name: **Engage Bot**. Built by **Baliyo Ventures**, under its Flexi product line. Baliyo is named as the maker on the public site.
 - The marketing site's existing framing is **Sense → Speak → Prove**, with the positioning line "sense shoppers, play audio, prove engagement."
 - No logo mark, brand typeface, or identity asset has been supplied. The wordmark is currently set text.
 
@@ -74,7 +74,7 @@ The second differentiator is the software layer itself: a comparable vendor sell
 - **No nameable customer.** The first client (a 100-unit commitment from an energy-drink brand) appears in internal repository docs, but is **not cleared for public or marketing use**. Do not name it, imply it, or describe it identifiably on any public surface.
 - **No testimonials, case studies, press, logos, or customer quotes.**
 - **No third-party category statistics** are approved for use either. Internal docs describe shelf robots as "proven to lift sales" for FMCG brands, but that claim is unsourced and must not appear on a public surface.
-- **No product photography or video** cleared for use. `tokinomo-frontend/public/` contains only stock Next.js SVGs (`file.svg`, `globe.svg`, `next.svg`, `vercel.svg`, `window.svg`).
+- **No product photography or video** cleared for use. `engage-bot-frontend/public/` contains only stock Next.js SVGs (`file.svg`, `globe.svg`, `next.svg`, `vercel.svg`, `window.svg`).
 
 **What does exist:** internal engineering documentation in `team/` (system, backend, frontend, and electronics architecture; a validated per-device BOM), backend seed data suitable for demonstrating the console, and a hardware prototype under active development. Design work needing visual proof should assume it must be produced or requested, never sourced.
 

@@ -1,5 +1,5 @@
 ---
-name: Tokinomo
+name: Engage Bot
 description: Layered papercut marketing and light console for a connected shelf-robot fleet — flat unmixed colour plates, depth by overlap.
 colors:
   paper: "oklch(96.5% 0.012 85)"
@@ -49,11 +49,11 @@ spacing:
   "16": "4rem"
 ---
 
-# Tokinomo Design System
+# Engage Bot Design System
 
 **Creative North Star: "Layered Papercut"**
 
-Tokinomo’s public face is built like a Łowicz paper cut: flat unmixed colour plates stacked so depth comes only from overlap and a soft paper-edge shadow — never from neon glow or dark glass. Sense → Speak → Prove becomes concentric layers in the landing roundel. The old Instrument Deck / midnight field is retired.
+Engage Bot’s public face is built like a Łowicz paper cut: flat unmixed colour plates stacked so depth comes only from overlap and a soft paper-edge shadow — never from neon glow or dark glass. Sense → Speak → Prove becomes concentric layers in the landing roundel. The old Instrument Deck / midnight field is retired.
 
 Brand buyers work in bright aisles and sell-in decks; the field is light paper so the product meets them in their room. Madder red is the cut that marks action (CTAs, live emphasis). Layer green, gold, navy, and sky are plates — not decoration scatter.
 

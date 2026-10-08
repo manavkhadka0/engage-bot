@@ -1,4 +1,4 @@
-# Tokinomo — Team Playbooks
+# Engage Bot — Team Playbooks
 
 **Companion to [ARCHITECTURE.md](ARCHITECTURE.md).** This splits the one system
 into four faculties so each team owns a clear slice and can work in parallel.

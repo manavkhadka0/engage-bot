@@ -1,4 +1,4 @@
-# Electronics BOM — Tokinomo (per unit)
+# Electronics BOM — Engage Bot (per unit)
 
 Parts for **one** device. Sourcing is for Nepal / Kathmandu:
 - **Local** = available in Kathmandu electronics shops or Daraz.
