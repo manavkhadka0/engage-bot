@@ -4,12 +4,13 @@
 #include "esp_err.h"
 
 /*
- * TB6612FNG (HW-166) driver, channel A only — one DC motor, forward-only for
- * v1 (per the state machine: drive forward through the whole cycle, a reed
- * switch marks "home", there is no reverse). STBY is GPIO-driven and set
- * HIGH once at init, matching the bench-tested Arduino reference this was
- * ported from — NOT the resistor-tied-high approach discussed earlier in
- * ELECTRONICS_ARCHITECTURE.md; that doc still needs updating to match this.
+ * Single-GPIO motor enable through an optocoupler (galvanic isolation).
+ * GPIO14 LOW  = optocoupler on  = motor rotates
+ * GPIO14 HIGH = optocoupler off = motor stopped
+ *
+ * Direction/speed are no longer ESP-driven — AIN1/AIN2/STBY (GPIO13/23/19)
+ * and PWM are gone. The public forward/stop names stay so the state machine
+ * does not change: forward = run, stop = stop.
  */
 
 esp_err_t motor_driver_init(void);

@@ -7,5 +7,6 @@ idf_component_register(
 
     REQUIRES
         esp_driver_i2s
+        esp_driver_gpio
         esp_partition
 )

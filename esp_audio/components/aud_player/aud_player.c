@@ -11,6 +11,7 @@
 #include "esp_log.h"
 #include "esp_partition.h"
 
+#include "driver/gpio.h"
 #include "driver/i2s_std.h"
 
 
@@ -28,12 +29,16 @@ void aud_player_request_stop(void)
 
 // I2S pins to the MAX98357A. SD (shutdown/enable) is tied to 3V3 in hardware.
 // Board: FireBeetle 2 ESP32-UE (N16R2) — silkscreen labels in comments.
+// (Briefly ran on an ESP32-S3-N16R8 with BCLK/WS/DIN on GPIO12/11/10 — that
+// chip's GPIO26 is reserved for flash/PSRAM and GPIO22/25 don't exist on it
+// at all. Back on a FireBeetle now, so back to these pins.)
 #define I2S_BCLK_PIN   GPIO_NUM_26   // silkscreen D3
 #define I2S_WS_PIN     GPIO_NUM_25   // silkscreen D2, LRC
 #define I2S_DOUT_PIN   GPIO_NUM_22   // DIN on the MAX98357A — moved off GPIO17/D10 to match actual wiring
 
-// 16-bit mono samples pulled from the source per iteration.
-#define CHUNK_SAMPLES  1024
+// 16-bit mono samples pulled from the source per iteration. Larger chunks
+// mean fewer flash reads while the motor is injecting EMI onto the bus.
+#define CHUNK_SAMPLES  2048
 
 
 /*
@@ -206,6 +211,12 @@ static esp_err_t play_stream(pcm_reader_t rd, void *ctx)
 
     i2s_chan_handle_t tx = NULL;
     i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
+    /* Deeper DMA so a brief flash stall or CPU hitch does not underrun
+     * into a click. This does not remove analog motor noise on a shared
+     * supply — that is a wiring problem — but it covers the software side. */
+    chan_cfg.dma_desc_num  = 12;
+    chan_cfg.dma_frame_num = 480;
+    chan_cfg.intr_priority = 2;
 
     err = i2s_new_channel(&chan_cfg, &tx, NULL);
     if (err != ESP_OK)
@@ -239,6 +250,10 @@ static esp_err_t play_stream(pcm_reader_t rd, void *ctx)
     }
 
     ESP_ERROR_CHECK(i2s_channel_enable(tx));
+
+    gpio_set_drive_capability(I2S_BCLK_PIN, GPIO_DRIVE_CAP_3);
+    gpio_set_drive_capability(I2S_WS_PIN,   GPIO_DRIVE_CAP_3);
+    gpio_set_drive_capability(I2S_DOUT_PIN, GPIO_DRIVE_CAP_3);
 
 
     uint8_t  in[CHUNK_SAMPLES * 2];   // 16-bit mono samples
@@ -331,13 +346,38 @@ esp_err_t aud_player_play_partition(const esp_partition_t *part)
         return ESP_ERR_INVALID_ARG;
     }
 
-    ESP_LOGI(TAG, "Playing from partition '%s'", part->label);
+    return aud_player_play_partition_range(part, 0, part->size);
+}
+
+esp_err_t aud_player_play_partition_range(const esp_partition_t *part,
+                                          size_t offset, size_t size)
+{
+    if (part == NULL || size == 0)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (offset >= part->size)
+    {
+        ESP_LOGE(TAG, "Clip offset %u past partition size %u",
+                 (unsigned)offset, (unsigned)part->size);
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    size_t end = offset + size;
+    if (end > part->size)
+    {
+        end = part->size;
+    }
+
+    ESP_LOGI(TAG, "Playing from partition '%s' @ %u (%u bytes)",
+             part->label, (unsigned)offset, (unsigned)(end - offset));
 
     part_ctx_t ctx =
     {
         .part   = part,
-        .offset = 0,
-        .end    = part->size,
+        .offset = offset,
+        .end    = end,
     };
 
     return play_stream(part_reader, &ctx);
