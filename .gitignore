@@ -13,3 +13,10 @@ Thumbs.db
 
 # Local tool caches
 .impeccable/
+
+# Generated / personal artifacts in esp_audio and image output — keep local.
+# (Don't push third-party clips or business documents to the public repo.)
+esp_audio/*_esp32.wav
+esp_audio/[0-9a-f]*-[0-9a-f]*-[0-9a-f]*-[0-9a-f]*-[0-9a-f]*.mp3
+esp_audio/*.docx
+output/
