@@ -5,12 +5,18 @@ CONFIG_TOUCH_SUPPRESS_DEPRECATE_WARN=y
 CONFIG_MQTT_USE_CUSTOM_CONFIG=y
 CONFIG_MQTT_BUFFER_SIZE=2048
 
-# Board is a FireBeetle 2 ESP32-UE (N16R2): 16MB flash. Without these, the
-# build silently falls back to ESP-IDF's bare-bones 2MB-flash single-app
-# default layout (partitions_singleapp.csv) instead of this project's own
-# partitions.csv — found while actually building Feature 2, where the app
-# partition came out 97% full. partitions.csv itself was already correct
-# and already checked in; it just was never selected.
+# 16MB flash. Without these, the build silently falls back to ESP-IDF's
+# bare-bones 2MB-flash single-app default layout (partitions_singleapp.csv)
+# instead of this project's own partitions.csv — found while actually
+# building Feature 2, where the app partition came out 97% full.
+# partitions.csv itself was already correct and already checked in; it
+# just was never selected. True on both boards this project has run on:
+# the FireBeetle 2 ESP32-UE (N16R2) and the ESP32-S3-N16R8 below.
 CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
 CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# (Octal-PSRAM config for the ESP32-S3-N16R8 detour lived here briefly —
+# CONFIG_SPIRAM=y + CONFIG_SPIRAM_MODE_OCT=y. Removed since that Kconfig
+# option doesn't apply to classic ESP32 at all; re-add if this project
+# goes back to an S3 board.)

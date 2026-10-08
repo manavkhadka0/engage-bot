@@ -2,22 +2,28 @@
 #
 # Convert any audio file (mp3, m4a, flac, ogg, opus, wav, ...) into the
 # format expected by this project's aud_player: 16-bit signed PCM,
-# mono, 16 kHz WAV. That combination gives the cleanest sound on the
-# ESP32's 8-bit DAC (see components/aud_player/aud_player.c) while
-# keeping file size small enough for the 1.5 MB "audio" flash partition.
+# mono WAV. The player reads the sample rate from the WAV header and
+# clocks I2S to match (MAX98357A), so higher rates sound better — the
+# old 16 kHz default was leftover from an 8-bit DAC / 1.5 MB partition.
+#
+# Default is 44100 Hz. A 30 s clip at that rate is ~2.6 MB; the audio
+# partition is ~12.4 MB (partitions.csv). Drop the rate only if the
+# output does not fit.
 #
 # Usage:
 #   ./to_esp32_wav.sh input.mp3 [output.wav]
 #   ./to_esp32_wav.sh input.mp3 [output.wav] [sample_rate_hz]
 #
 # If output.wav is omitted, it's written next to the input as
-# "<name>_esp32.wav". Default sample rate is 16000 Hz.
+# "<name>_esp32.wav".
 #
 # Requires: ffmpeg (brew install ffmpeg)
 
 set -euo pipefail
 
-SAMPLE_RATE="16000"
+SAMPLE_RATE="44100"
+# audio partition size in partitions.csv (0xBE0000)
+AUDIO_PARTITION_BYTES=12451840
 
 usage() {
     echo "Usage: $0 <input_audio> [output.wav] [sample_rate_hz]" >&2
@@ -75,9 +81,9 @@ SIZE=$(stat -f%z "$OUTPUT" 2>/dev/null || stat -c%s "$OUTPUT" 2>/dev/null || ech
 echo
 echo "Done: $OUTPUT ($SIZE bytes)"
 
-if [ "$SIZE" != "?" ] && [ "$SIZE" -gt 1572864 ]; then
+if [ "$SIZE" != "?" ] && [ "$SIZE" -gt "$AUDIO_PARTITION_BYTES" ]; then
     echo
-    echo "WARNING: output is larger than the 1536 KB 'audio' partition" \
-         "(partitions.csv). It will not fit as-is — trim the source" \
-         "or lower the sample rate."
+    echo "WARNING: output is larger than the ${AUDIO_PARTITION_BYTES}-byte" \
+         "'audio' partition (partitions.csv). It will not fit as-is —" \
+         "trim the source or lower the sample rate."
 fi
