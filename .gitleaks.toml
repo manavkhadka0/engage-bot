@@ -46,6 +46,7 @@ regexes = [
   # obvious placeholders in docs/examples
   '''(?i)(your|my)[-_ ]?(password|pass|token|ssid|secret)''',
   '''(?i)change-?me''',
+  '''\*\*\*REMOVED\*\*\*''',      # marker left where history was scrubbed of a leaked value
   '''(?i)^your[-_ ]''',          # e.g. "your-wifi-password", "your-device-provision-token"
   '''(?i)^(example|sample|dummy|fake|test)[-_.]''',
   '''(?i)^(true|false|null|none|example|placeholder|required|generated|empty)$''',
