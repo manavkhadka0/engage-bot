@@ -32,6 +32,12 @@ services:
       retries: 10
 
   minio:
+    # WARNING: MinIO images are no longer pullable from Docker Hub or
+    # quay.io (checked 2026-10-08 — not even `latest`, nor any RELEASE tag).
+    # This only works on machines that still have the image cached locally
+    # (RELEASE.2025-09-07T16-13-09Z). A fresh host / CI / teammate laptop
+    # cannot pull it — do not deploy this service as-is. For hosting, point
+    # S3_* at a managed S3-compatible store instead (see team/COOLIFY_DEPLOY.md).
     image: minio/minio:latest
     container_name: tokinomo-minio
     restart: unless-stopped
@@ -52,14 +58,13 @@ services:
       start_period: 10s
 
   minio-init:
-    image: minio/mc:latest
+    image: minio/mc:latest   # same caveat as the minio service above
     container_name: tokinomo-minio-init
     depends_on:
       minio:
-        condition: service_started
+        condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-      sleep 3;
       mc alias set local http://minio:9000 tokinomo ***REMOVED***;
       mc mb --ignore-existing local/tokinomo;
       exit 0;
