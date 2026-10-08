@@ -42,6 +42,20 @@ export const auth = betterAuth({
     .split(',')
     .map((o) => o.trim())
     .filter(Boolean),
+  // Sign-in goes through the web app (app.<domain> proxies /api/auth), so the
+  // session cookie is set on that host, but the realtime websocket connects
+  // straight to api.<domain> and authenticates with the same cookie. A
+  // host-only cookie never reaches the API host in production (it only works
+  // on localhost, where cookies ignore ports), so share it across
+  // subdomains: COOKIE_DOMAIN=.example.com. Leave unset for local dev.
+  advanced: process.env.COOKIE_DOMAIN
+    ? {
+        crossSubDomainCookies: {
+          enabled: true,
+          domain: process.env.COOKIE_DOMAIN,
+        },
+      }
+    : undefined,
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,

@@ -43,6 +43,9 @@ export const envSchema = z.object({
 
   BETTER_AUTH_SECRET: z.string().min(16),
   BETTER_AUTH_URL: z.string().url().default('http://localhost:3000'),
+  /** Parent domain (e.g. ".example.com") so the session cookie reaches both the
+   * web app and the API host in production. Leave unset for local dev. */
+  COOKIE_DOMAIN: z.string().optional().default(''),
 
   RESEND_API_KEY: z.string().optional().default(''),
   RESEND_FROM_EMAIL: z
