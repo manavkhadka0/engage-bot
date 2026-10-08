@@ -12,7 +12,7 @@ Architecture refs: [`../team/BACKEND_ARCHITECTURE.md`](../team/BACKEND_ARCHITECT
 cp .env.example .env
 pnpm install
 pnpm docker:up
-pnpm exec prisma db push
+pnpm exec prisma migrate deploy
 pnpm seed:platform
 pnpm start:dev
 ```
