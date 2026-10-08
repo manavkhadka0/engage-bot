@@ -1,4 +1,4 @@
-# Tokinomo
+# Engage Bot
 
 Shelf-advertising robot for **Xtreme**, built by **Baliyo Ventures**.
 
@@ -10,7 +10,7 @@ Start here: **[Team Handbook](./team/TEAM_INDEX.md)**
 
 | Area | Doc |
 |------|-----|
-| Product overview | [TOKINOMO_MASTER.md](./team/TOKINOMO_MASTER.md) |
+| Product overview | [ENGAGE_BOT_MASTER.md](./team/ENGAGE_BOT_MASTER.md) |
 | System architecture | [ARCHITECTURE.md](./team/ARCHITECTURE.md) |
 | Contracts / interfaces | [CONTRACTS.md](./team/CONTRACTS.md) |
 | Backend | [BACKEND_ARCHITECTURE.md](./team/BACKEND_ARCHITECTURE.md) |
@@ -22,10 +22,20 @@ Start here: **[Team Handbook](./team/TEAM_INDEX.md)**
 
 Business, pricing, and proposal docs are kept privately by the founders and are not in this repository.
 
+## Getting started
+
+```bash
+sh scripts/install-git-hooks.sh          # once per clone: secret-scans every commit (needs `brew install gitleaks`)
+cd engage-bot-backend && pnpm install
+pnpm setup:env                          # creates .env with random local secrets (never committed)
+```
+
+Secrets policy: **[SECURITY.md](./SECURITY.md)** — nothing secret is ever committed; this repo is public.
+
 ## Backend
 
-NestJS API scaffold: [`tokinomo-backend/`](./tokinomo-backend/) — see its README for Docker + Scalar docs.
+NestJS API scaffold: [`engage-bot-backend/`](./engage-bot-backend/) — see its README for Docker + Scalar docs.
 
 ## Frontend
 
-Next.js + TanStack Query scaffold: [`tokinomo-frontend/`](./tokinomo-frontend/) — own git repo; see its README.
+Next.js + TanStack Query scaffold: [`engage-bot-frontend/`](./engage-bot-frontend/) — own git repo; see its README.
