@@ -35,13 +35,13 @@ export default function HomePage() {
         <Objections />
         <Tiers />
 
-        <section className="page-gutter border-t border-[var(--color-rule)] py-20 md:py-28">
-          <div className="mx-auto max-w-[1200px]">
+        <section className="page-gutter border-t border-(--color-rule) py-20 md:py-28">
+          <div className="mx-auto max-w-300">
             <Reveal y={40}>
-              <h2 className="max-w-[20ch] text-[length:var(--text-display-s)] font-normal tracking-[var(--tracking-display)] text-[var(--color-ink)]">
+              <h2 className="max-w-[20ch] text-(length:--text-display-s) font-normal tracking-(--tracking-display) text-[var(--color-ink)]">
                 Put one on a shelf and watch it report back.
               </h2>
-              <p className="mt-4 max-w-[52ch] text-[length:var(--text-lg)] text-[var(--color-ink-2)]">
+              <p className="mt-4 max-w-[52ch] text-(length:--text-lg) text-sidebar-foreground">
                 Tell us the stores, the product and the shelf, and we will scope a
                 first deployment — units, mounting and the workspace your team
                 logs into.
@@ -49,13 +49,13 @@ export default function HomePage() {
               <div className="mt-9 flex flex-wrap items-center gap-3">
                 <Link
                   href="/contact"
-                  className="inline-flex h-11 items-center rounded-[var(--radius-pill)] bg-[var(--color-accent)] px-6 text-[length:var(--text-sm)] font-medium text-[var(--color-accent-ink)] transition-[filter] duration-[var(--dur-micro)] hover:brightness-105"
+                  className="inline-flex h-11 items-center rounded-(--radius-pill) bg-(--color-accent) px-6 text-[length:var(--text-sm)] font-medium text-[var(--color-accent-ink)] transition-[filter] duration-[var(--dur-micro)] hover:brightness-105"
                 >
                   Book a demo
                 </Link>
                 <Link
                   href="/faqs"
-                  className="inline-flex h-11 items-center rounded-[var(--radius-pill)] border border-[var(--color-rule-2)] px-6 text-[length:var(--text-sm)] text-[var(--color-ink)] transition-colors duration-[var(--dur-micro)] hover:border-[var(--color-ink)]"
+                  className="inline-flex h-11 items-center rounded-(--radius-pill) border border-[var(--color-rule-2)] px-6 text-[length:var(--text-sm)] text-[var(--color-ink)] transition-colors duration-[var(--dur-micro)] hover:border-[var(--color-ink)]"
                 >
                   Read the FAQs
                 </Link>
