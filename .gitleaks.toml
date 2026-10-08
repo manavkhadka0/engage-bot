@@ -46,6 +46,7 @@ regexes = [
   # obvious placeholders in docs/examples
   '''(?i)(your|my)[-_ ]?(password|pass|token|ssid|secret)''',
   '''(?i)change-?me''',
+  '''(?i)^S3_BUCKET=''',              # bucket names are not secrets (generic rule can capture the line after a <placeholder>)
   '''\*\*\*REMOVED\*\*\*''',      # marker left where history was scrubbed of a leaked value
   '''(?i)^your[-_ ]''',          # e.g. "your-wifi-password", "your-device-provision-token"
   '''(?i)^(example|sample|dummy|fake|test)[-_.]''',
