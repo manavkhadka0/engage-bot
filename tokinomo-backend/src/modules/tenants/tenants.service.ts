@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -32,6 +33,8 @@ type Actor = { id?: string } | null | undefined;
 
 @Injectable()
 export class TenantsService {
+  private readonly logger = new Logger(TenantsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly billing: BillingService,
@@ -700,22 +703,37 @@ export class TenantsService {
     });
 
     const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3001';
-    await mailService.send({
-      to: dto.adminEmail,
-      subject: `Welcome to Tokinomo — ${dto.name}`,
-      html: `
+
+    // The tenant, admin user and subscription already exist by this point, so
+    // a mail-provider failure (unverified Resend domain, outage, rejected
+    // recipient) must not turn into a 500: the caller would retry, hit
+    // "slug already taken", and the admin would never get their credentials.
+    // Report it via `emailSent` so the platform operator can hand them over.
+    let emailSent = true;
+    try {
+      await mailService.send({
+        to: dto.adminEmail,
+        subject: `Welcome to Tokinomo — ${dto.name}`,
+        html: `
         <p>Hi ${dto.adminName},</p>
         <p>Your brand workspace <strong>${dto.name}</strong> is ready (${dto.tier}, 6-month trial).</p>
         <p><strong>Email:</strong> ${dto.adminEmail}<br/>
         <strong>Password:</strong> ${dto.adminPassword}</p>
         <p>Sign in: <a href="${frontendUrl}/login">${frontendUrl}/login</a></p>
       `,
-      text: `Your Tokinomo workspace "${dto.name}" is ready. Login: ${frontendUrl}/login`,
-    });
+        text: `Your Tokinomo workspace "${dto.name}" is ready. Login: ${frontendUrl}/login`,
+      });
+    } catch (err) {
+      emailSent = false;
+      this.logger.error(
+        `Tenant ${tenant.slug} created but welcome email to ${dto.adminEmail} failed: ${String(err)}`,
+      );
+    }
 
     return {
       tenant,
       subscription,
+      emailSent,
       organizationId: org.id,
       admin: {
         id: userId,
