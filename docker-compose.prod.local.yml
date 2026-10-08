@@ -1,0 +1,100 @@
+# LOCAL rehearsal of docker-compose.prod.yml — not for deployment.
+#
+# Builds the images from source instead of pulling from GHCR, adds a throwaway
+# MinIO in place of R2, publishes the ports a browser/device test needs, and
+# swaps the https URLs for http://<HOST_IP>. HOST_IP must be this machine's LAN
+# IP: the browser AND the web container both have to reach the API at one URL.
+#
+#   docker compose -p tokinomo-prodtest --env-file <rehearsal.env> \
+#     -f docker-compose.prod.yml -f docker-compose.prod.local.yml up -d --build
+#
+# <rehearsal.env> needs every variable listed in .env.prod.example plus the
+# SERVICE_PASSWORD_64_{POSTGRES,REDIS,MQTT,AUTH,EMQXCOOKIE,EMQXDASHBOARD}
+# values Coolify would generate (any random strings), and HOST_IP.
+# Stop any other stack using ports 1883/3000/3003/5432/9000 first.
+
+services:
+  emqx:
+    ports:
+      - "1883:1883"
+
+  api:
+    build:
+      context: ./tokinomo-backend
+    image: tokinomo-api:local
+    pull_policy: never
+    ports:
+      - "3000:3000"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      APP_URL: http://${HOST_IP:?set HOST_IP}:3000
+      FRONTEND_URL: http://${HOST_IP}:3003
+      CORS_ORIGINS: http://${HOST_IP}:3003
+      BETTER_AUTH_URL: http://${HOST_IP}:3003
+      COOKIE_DOMAIN: "" # one host (the IP), so no cross-subdomain cookie needed
+      S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: http://${HOST_IP}:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY_ID: tokinomo
+      S3_SECRET_ACCESS_KEY: ***REMOVED***
+      S3_FORCE_PATH_STYLE: "true"
+
+  web:
+    build:
+      context: ./tokinomo-frontend
+      args:
+        NEXT_PUBLIC_APP_URL: http://${HOST_IP}:3003
+        NEXT_PUBLIC_API_URL: http://${HOST_IP}:3000
+    image: tokinomo-web:local
+    pull_policy: never
+    ports:
+      - "3003:3001" # 3003 on the host: 3001 is often taken by a dev server
+
+  backup:
+    build:
+      context: ./tokinomo-backend/backup
+    image: tokinomo-backup:local
+    pull_policy: never
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY_ID: tokinomo
+      S3_SECRET_ACCESS_KEY: ***REMOVED***
+
+  minio:
+    image: minio/minio:latest # cached locally only; see docker-compose.yml warning
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+    environment:
+      MINIO_ROOT_USER: tokinomo
+      MINIO_ROOT_PASSWORD: ***REMOVED***
+    volumes:
+      - tokinomo_prodtest_minio:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 tokinomo ***REMOVED***;
+      mc mb --ignore-existing local/tokinomo;
+      exit 0;
+      "
+    restart: "no"
+
+volumes:
+  tokinomo_prodtest_minio:

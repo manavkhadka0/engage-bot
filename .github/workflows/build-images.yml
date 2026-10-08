@@ -1,0 +1,114 @@
+# Builds the three production images on GitHub's runners and pushes them to GHCR,
+# so the VPS only pulls (no builds on the server). Coolify's compose resource
+# (docker-compose.prod.yml) references these images. Runbook: team/COOLIFY_DEPLOY.md
+#
+# One-time setup (repo → Settings → Secrets and variables → Actions → *Variables*):
+#   NEXT_PUBLIC_APP_URL   e.g. https://app.example.com   (baked into the web image)
+#   NEXT_PUBLIC_API_URL   e.g. https://api.example.com   (baked into the web image)
+# Optional *Secrets* to auto-redeploy after a successful push:
+#   COOLIFY_DEPLOY_WEBHOOK   the resource's "Deploy Webhook" URL from Coolify
+#   COOLIFY_API_TOKEN        a Coolify API token (Keys & Tokens)
+#
+# After the FIRST successful run, GHCR packages are private. Either make each of
+# tokinomo-api / tokinomo-web / tokinomo-backup public (Package settings → Change
+# visibility; the images contain no secrets), or `docker login ghcr.io` on the
+# server with a token that has read:packages.
+
+name: Build images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tokinomo-backend/**"
+      - "tokinomo-frontend/**"
+      - ".github/workflows/build-images.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: build-images
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: api
+            context: tokinomo-backend
+            build_args: ""
+          - name: web
+            context: tokinomo-frontend
+            build_args: |
+              NEXT_PUBLIC_APP_URL=${{ vars.NEXT_PUBLIC_APP_URL }}
+              NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
+          - name: backup
+            context: tokinomo-backend/backup
+            build_args: ""
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Require production URLs for the web image
+        if: matrix.name == 'web'
+        env:
+          APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+          API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+        run: |
+          for v in APP_URL API_URL; do
+            val="${!v}"
+            case "$val" in
+              https://*) ;;
+              *) echo "::error::Set the repository variable NEXT_PUBLIC_${v} to your https:// URL (got '${val}'). Refusing to bake localhost/empty URLs into the web image."; exit 1 ;;
+            esac
+          done
+
+      - name: Compute image names
+        id: img
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "base=ghcr.io/${owner}/tokinomo-${{ matrix.name }}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          platforms: linux/amd64
+          push: true
+          build-args: ${{ matrix.build_args }}
+          tags: |
+            ${{ steps.img.outputs.base }}:latest
+            ${{ steps.img.outputs.base }}:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Coolify redeploy (skipped unless configured)
+        env:
+          WEBHOOK: ${{ secrets.COOLIFY_DEPLOY_WEBHOOK }}
+          TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: |
+          if [ -z "$WEBHOOK" ] || [ -z "$TOKEN" ]; then
+            echo "COOLIFY_DEPLOY_WEBHOOK / COOLIFY_API_TOKEN not set — skipping auto-deploy."
+            exit 0
+          fi
+          curl --fail --silent --show-error -H "Authorization: Bearer ${TOKEN}" "${WEBHOOK}"
+          echo "Coolify redeploy triggered."
