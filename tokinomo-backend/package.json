@@ -26,7 +26,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "seed:platform": "tsx prisma/seed-platform.ts"
+    "seed:platform": "tsx prisma/seed-platform.ts",
+    "storage:check": "tsx --env-file-if-exists=.env scripts/storage-check.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1095.0",

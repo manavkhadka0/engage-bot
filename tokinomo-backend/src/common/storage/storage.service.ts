@@ -25,11 +25,19 @@ export class StorageService implements OnModuleInit {
     };
     const region = process.env.S3_REGION ?? 'us-east-1';
     const forcePathStyle = process.env.S3_FORCE_PATH_STYLE !== 'false';
+    // Recent AWS SDK versions attach CRC32 checksum headers to every request
+    // by default. Cloudflare R2 and Backblaze B2 (and older MinIO) don't all
+    // accept that, so only compute checksums when an operation requires one.
+    const checksums = {
+      requestChecksumCalculation: 'WHEN_REQUIRED',
+      responseChecksumValidation: 'WHEN_REQUIRED',
+    } as const;
     this.client = new S3Client({
       region,
       endpoint: process.env.S3_ENDPOINT ?? 'http://localhost:9000',
       forcePathStyle,
       credentials,
+      ...checksums,
     });
     this.presignClient = new S3Client({
       region,
@@ -39,6 +47,7 @@ export class StorageService implements OnModuleInit {
         'http://localhost:9000',
       forcePathStyle,
       credentials,
+      ...checksums,
     });
   }
 
@@ -53,7 +62,7 @@ export class StorageService implements OnModuleInit {
         this.logger.log(`Created bucket ${this.bucket}`);
       } catch (err) {
         this.logger.warn(
-          `S3 unavailable (${this.bucket}) — audio upload needs MinIO: ${String(err)}`,
+          `S3 unavailable (${this.bucket}) — audio upload needs the S3-compatible store (check S3_* env; try \`pnpm storage:check\`): ${String(err)}`,
         );
       }
     }
