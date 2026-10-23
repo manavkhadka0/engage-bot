@@ -22,7 +22,7 @@ async function fetchSession(request: NextRequest) {
   }
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isAdmin = pathname.startsWith("/admin");
   const isBrand = pathname.startsWith("/app");

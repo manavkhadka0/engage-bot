@@ -69,7 +69,7 @@ hooks/  useDevices · useAnalytics · useLiveStatus · useAudio
 
 ## 4. Auth, roles & tenancy
 - **BetterAuth client** for login/session; the session carries `role` + `activeOrganizationId`.
-- **Route guards:** `PLATFORM_*` → `/admin`; brand roles → `/app/[tenantSlug]`. Use Next.js middleware + a server-side session check; never trust the client alone.
+- **Route guards:** `PLATFORM_*` → `/admin`; brand roles → `/app/[tenantSlug]`. Use the Next.js proxy (`proxy.ts`, formerly middleware) + a server-side session check; never trust the client alone.
 - **Tenant resolution:** path-based `/app/[tenantSlug]` now (subdomains later). A **platform user can switch tenant / impersonate** (org switcher → sends `x-tenant-id`).
 - **Role-gated UI:** `BRAND_VIEWER` sees read-only; hide user-management from `BRAND_STAFF`.
 
