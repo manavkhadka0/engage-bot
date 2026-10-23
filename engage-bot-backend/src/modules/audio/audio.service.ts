@@ -4,7 +4,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
 import { createHash, randomUUID } from 'crypto';
+import type { Queue } from 'bullmq';
 import { CommandStatus, CommandType } from '@prisma/client';
 import type { AuthContext } from '../../common/guards/roles.guard';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -12,8 +14,12 @@ import { StorageService } from '../../common/storage/storage.service';
 import { BillingService } from '../billing/billing.service';
 import { maxAudioClips } from '../billing/tier-catalog';
 import { CommandPublisher } from '../../workers/jobs/command-publisher';
+import { JOBS_QUEUE } from '../../workers/jobs/jobs.processor';
 
 export const MAX_AUDIO_BYTES = 4 * 1024 * 1024;
+
+/** Pushes to more devices than this are fanned out by a background job. */
+export const INLINE_PUSH_LIMIT = 50;
 
 interface WavFormat {
   numChannels: number;
@@ -59,6 +65,7 @@ export class AudioService {
     private readonly storage: StorageService,
     private readonly billing: BillingService,
     private readonly commands: CommandPublisher,
+    @InjectQueue(JOBS_QUEUE) private readonly jobs: Queue,
   ) {}
 
   private requireTenant(auth: AuthContext) {
@@ -169,6 +176,15 @@ export class AudioService {
     });
     if (devices.length !== deviceIds.length) {
       throw new ForbiddenException('One or more devices not in tenant');
+    }
+
+    if (devices.length > INLINE_PUSH_LIMIT) {
+      await this.jobs.add(
+        'audio-push-fanout',
+        { tenantId, clipId: clip.id, deviceIds: devices.map((d) => d.id) },
+        { attempts: 3, backoff: { type: 'exponential', delay: 5_000 }, removeOnComplete: 100 },
+      );
+      return { clip, commands: [], published: [], queued: devices.length };
     }
 
     const commands = await Promise.all(

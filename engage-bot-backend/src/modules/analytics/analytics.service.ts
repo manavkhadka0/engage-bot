@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import { DeviceEventType, DeviceStatus } from '@prisma/client';
 import type { AuthContext } from '../../common/guards/roles.guard';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { BillingService } from '../billing/billing.service';
 
 function formatHourLabel(hour: number): string {
   const period = hour < 12 ? 'a' : 'p';
@@ -17,7 +18,10 @@ interface PlaysSeriesRow {
 
 @Injectable()
 export class AnalyticsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly billing: BillingService,
+  ) {}
 
   private requireTenant(auth: AuthContext) {
     if (!auth.tenantId) throw new ForbiddenException('Active tenant required');
@@ -111,6 +115,8 @@ export class AnalyticsService {
 
   async dwell(auth: AuthContext) {
     const tenantId = this.requireTenant(auth);
+    // Platform staff can always inspect a tenant; brand users need the GROWTH+ feature.
+    if (!auth.isPlatform) await this.billing.requireFeature(tenantId, 'dwell_analytics');
     const rows = await this.prisma.deviceEvent.findMany({
       where: { tenantId, type: DeviceEventType.DWELL, dwellMs: { not: null } },
       select: { dwellMs: true, deviceId: true, ts: true },

@@ -47,6 +47,12 @@ export const envSchema = z.object({
    * web app and the API host in production. Leave unset for local dev. */
   COOKIE_DOMAIN: z.string().optional().default(''),
 
+  /** Mark ONLINE devices OFFLINE after this many seconds without a message. 0 = off
+   * (the firmware has no heartbeat yet; presence comes from the MQTT last-will). */
+  DEVICE_OFFLINE_AFTER_SECONDS: z.coerce.number().int().min(0).default(0),
+  /** Nightly job deletes raw device events older than this many days. 0 = keep forever. */
+  EVENT_RETENTION_DAYS: z.coerce.number().int().min(0).default(90),
+
   RESEND_API_KEY: z.string().optional().default(''),
   RESEND_FROM_EMAIL: z
     .string()

@@ -45,4 +45,14 @@ export class ProductsService {
     if (!product) throw new NotFoundException('Product not found');
     return this.prisma.product.update({ where: { id }, data });
   }
+
+  /** Devices keep working: the FK is ON DELETE SET NULL, so they just lose the product link. */
+  async remove(auth: AuthContext, id: string) {
+    const tenantId = this.requireTenant(auth);
+    const { count } = await this.prisma.product.deleteMany({
+      where: { id, tenantId },
+    });
+    if (count === 0) throw new NotFoundException('Product not found');
+    return { id, deleted: true };
+  }
 }

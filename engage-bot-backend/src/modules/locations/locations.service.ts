@@ -43,4 +43,14 @@ export class LocationsService {
     if (!row) throw new NotFoundException('Location not found');
     return this.prisma.location.update({ where: { id }, data });
   }
+
+  /** Devices keep working: the FK is ON DELETE SET NULL, so they just lose the location link. */
+  async remove(auth: AuthContext, id: string) {
+    const tenantId = this.requireTenant(auth);
+    const { count } = await this.prisma.location.deleteMany({
+      where: { id, tenantId },
+    });
+    if (count === 0) throw new NotFoundException('Location not found');
+    return { id, deleted: true };
+  }
 }

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, Param, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 import { createZodDto } from 'nestjs-zod';
@@ -63,5 +63,15 @@ export class LocationsController {
       id,
       dto,
     );
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete location (assigned devices are unlinked, not deleted)' })
+  remove(
+    @Session() session: UserSession,
+    @Headers(TENANT_ID_HEADER) tenantHeader: string | undefined,
+    @Param('id') id: string,
+  ) {
+    return this.locations.remove(sessionToAuth(session, tenantHeader), id);
   }
 }

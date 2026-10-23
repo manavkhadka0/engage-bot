@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { SubscriptionStatus, TenantTier } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import {
@@ -162,6 +162,20 @@ export class BillingService {
 
   assertFeature(tier: string, feature: FeatureKey) {
     return tierHasFeature(tier, feature);
+  }
+
+  /** Throws 403 unless the tenant's current tier includes `feature`. */
+  async requireFeature(tenantId: string, feature: FeatureKey) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { tier: true },
+    });
+    if (!tenant) throw new NotFoundException('Tenant not found');
+    if (!tierHasFeature(tenant.tier, feature)) {
+      throw new ForbiddenException(
+        `Your ${TIER_LABELS[tenant.tier as CatalogTier] ?? tenant.tier} plan does not include "${feature}". Upgrade to unlock it.`,
+      );
+    }
   }
 
   async listAll() {

@@ -117,6 +117,8 @@ services:
       # is set via app.<domain> but must also reach api.<domain> for the
       # realtime websocket. Without it live dashboards never update.
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:?set COOKIE_DOMAIN to the parent domain with a leading dot, e.g. .example.com}
+      DEVICE_OFFLINE_AFTER_SECONDS: ${DEVICE_OFFLINE_AFTER_SECONDS:-0}
+      EVENT_RETENTION_DAYS: ${EVENT_RETENTION_DAYS:-90}
       DATABASE_URL: postgresql://engage_bot:${SERVICE_PASSWORD_64_POSTGRES}@postgres:5432/engage_bot?schema=public
       REDIS_URL: redis://:${SERVICE_PASSWORD_64_REDIS}@redis:6379
       S3_ENDPOINT: ${S3_ENDPOINT:?set S3_ENDPOINT (R2 example https://<account>.r2.cloudflarestorage.com)}
