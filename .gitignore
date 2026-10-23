@@ -26,3 +26,11 @@ Thumbs.db
 *.pem
 *.key
 *.p12
+
+# Audio and business documents stay local (copyright / privacy) — see esp_audio/README.md
+esp_audio/**/*.wav
+esp_audio/**/*.mp3
+esp_audio/*.wav
+esp_audio/*.mp3
+esp_audio/*.bin
+*.docx

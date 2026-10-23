@@ -28,12 +28,13 @@ idf.py set-target esp32
 idf.py build                      # also generates the partition table
 python $IDF_PATH/components/partition_table/parttool.py \
   --port /dev/tty.usbserial-0001 \
-  write_partition --partition-name audio --input hello.wav
+  write_partition --partition-name audio --input test_clip.wav
 idf.py -p /dev/tty.usbserial-0001 flash monitor
 ```
 
-`hello.wav` (already in this repo) is 16-bit mono — the only format `aud_player`
-accepts. `techno.wav` and `test_tone.wav` are also in the repo for a longer/simpler clip.
+Make the clip first with `python3 tools/make_test_clip.py` (a royalty-free tone sequence). The
+player only accepts 16-bit mono PCM WAV; convert your own audio with `tools/to_esp32_wav.sh`.
+Audio files are not kept in this repo (copyright and size); `*.wav` / `*.mp3` are gitignored.
 
 ## Standalone hardware-loop test (current `main.c` — no backend/frontend)
 
@@ -55,8 +56,8 @@ home-timeout safety is now actually enforced, not just defined-and-unused).
 | Motor AIN1 / AIN2 / PWMA / STBY | 13 / 23 / 14 / 19 | STBY is GPIO-driven here (set HIGH once at boot), not resistor-tied |
 | Reed switch (home) | 18 | `INPUT_PULLUP`; LOW = magnet present = home |
 
-**Before building:** flash `techno.wav` onto the `audio` partition — it's the bundled
-default clip for this test, no download step:
+**Before building:** generate `test_clip.wav` (`python3 tools/make_test_clip.py`) and flash it
+onto the `audio` partition:
 
 ```bash
 . $HOME/esp/esp-idf/export.sh
@@ -64,7 +65,7 @@ idf.py set-target esp32
 idf.py build
 python $IDF_PATH/components/partition_table/parttool.py \
   --port /dev/tty.usbserial-0001 \
-  write_partition --partition-name audio --input techno.wav
+  write_partition --partition-name audio --input test_clip.wav
 idf.py -p /dev/tty.usbserial-0001 flash monitor
 ```
 
