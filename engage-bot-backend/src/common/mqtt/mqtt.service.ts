@@ -16,6 +16,8 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
     Set<(topic: string, payload: Buffer) => void>
   >();
 
+  private lastError?: string;
+
   onModuleInit() {
     const url = process.env.MQTT_URL ?? 'mqtt://localhost:1883';
     const username = process.env.MQTT_USERNAME || undefined;
@@ -31,6 +33,7 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
 
       this.client.on('connect', () => {
         this.connected = true;
+        this.lastError = undefined;
         this.logger.log(`MQTT connected ${url}`);
         this.client?.subscribe('t/+/d/+/+', (err) => {
           if (err) this.logger.error(`MQTT subscribe failed: ${err.message}`);
@@ -43,7 +46,19 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
 
       this.client.on('error', (err) => {
         this.connected = false;
-        this.logger.warn(`MQTT error: ${err.message}`);
+        // Log each distinct failure once per outage, not on every 5 s retry.
+        if (err.message === this.lastError) return;
+        this.lastError = err.message;
+        if (/not authorized/i.test(err.message)) {
+          this.logger.warn(
+            'MQTT login rejected. At startup this is normal: the broker validates logins by calling ' +
+              "this API's /mqtt/auth, and its hook retries about every 15 s until the API is up, so " +
+              'the next retries succeed on their own. If it persists, MQTT_USERNAME/MQTT_PASSWORD ' +
+              'do not match what the broker accepts.',
+          );
+        } else {
+          this.logger.warn(`MQTT error: ${err.message}`);
+        }
       });
 
       this.client.on('close', () => {
